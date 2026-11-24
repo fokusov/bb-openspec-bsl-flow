@@ -49,3 +49,13 @@ export async function readDocument(
   if (file.contentEncoding !== "utf8") throw pluginError("error.notUtf8");
   return file.content;
 }
+
+export async function projectTestReport(sdk: Sdk, source: Workspace) {
+  const report = path.join(source.path, ".bsl-flow", "reports", "tests", "current.json");
+  try {
+    const file = await sdk.files.read({ hostId: source.hostId, rootPath: source.path, path: report });
+    if (file.contentEncoding === "utf8" && file.sizeBytes <= LIMITS.fileBytes) return report;
+  } catch {
+    // Project-level evidence is optional and must remain within the code workspace.
+  }
+}

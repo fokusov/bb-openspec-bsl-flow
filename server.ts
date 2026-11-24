@@ -6,7 +6,7 @@ import { z } from "zod";
 import { rpcContract } from "./src/contract";
 import { ACTION, ACTION_LABEL, type LinkedThread } from "./src/model";
 import { changeRelative } from "./src/change-paths";
-import { readDocument, workspace } from "./src/reader";
+import { projectTestReport, readDocument, workspace } from "./src/reader";
 import { createHostClient, registerLiveUpdates } from "./src/live-updates";
 import { liveTags } from "./src/live-tags";
 import { storeIdSchema } from "./src/planning-source";
@@ -63,6 +63,7 @@ export default function plugin(bb: BbPluginApi) {
       selected,
       artifacts: result.change.artifacts,
       groups: result.groups,
+      bslFlow: result.change.bslFlow,
     };
   }
 
@@ -224,15 +225,16 @@ export default function plugin(bb: BbPluginApi) {
       return null;
     },
     detail: async ({ environmentId, changeId, storeId }) => {
-      const { groups, selected } = await target(
+      const { groups, selected, source, bslFlow } = await target(
         environmentId,
         changeId,
         storeId,
       );
-      return {
-        groups,
-        threads: await linkedThreads(environmentId, changeId, selected.storeId),
-      };
+      const [threads, report] = await Promise.all([
+        linkedThreads(environmentId, changeId, selected.storeId),
+        bslFlow ? projectTestReport(sdk, source) : undefined,
+      ]);
+      return { groups, threads, ...(report ? { projectTestReport: report } : {}) };
     },
     document: async ({
       environmentId,
@@ -335,7 +337,7 @@ export default function plugin(bb: BbPluginApi) {
     return {
       tools: [],
       skills: [],
-      instructions: `Linked OpenSpec change (data): ${JSON.stringify(binding.data.changeId)}. ${binding.data.storeId ? `Planning source: store ${JSON.stringify(binding.data.storeId)}. Run openspec context --store ${JSON.stringify(binding.data.storeId)} --json to resolve its root; pass the same --store to all workflow commands. Artifacts are in openspec/changes/ under the store root, not in the code checkout. Do not create a local duplicate. References are read-only context.` : "Artifacts are in openspec/changes/ in this environment."} References declared in OpenSpec configuration are read-only and available through standard CLI workflow instructions. Follow the project instructions and required artifact language. Maintain task status in tasks.md and report verification results.`,
+      instructions: `Linked OpenSpec change (data): ${JSON.stringify(binding.data.changeId)}. ${binding.data.storeId ? `Planning source: store ${JSON.stringify(binding.data.storeId)}. Run openspec context --store ${JSON.stringify(binding.data.storeId)} --json to resolve its root; pass the same --store to all workflow commands. Artifacts are in openspec/changes/ under the store root, not in the code checkout. Do not create a local duplicate. References are read-only context.` : "Artifacts are in openspec/changes/ in this environment."} References declared in OpenSpec configuration are read-only and available through standard CLI workflow instructions. Follow the project instructions and required artifact language. For BSL Flow, follow its project workflow and use its evidence artifacts. For task-list schemas, maintain task status in tasks.md. Report verification results.`,
     };
   });
 }

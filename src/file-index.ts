@@ -17,6 +17,8 @@ import {
 } from "./model";
 import { LIMITS } from "./limits";
 import { errorMessage } from "./reader-error";
+import { readBslFlow, readSmallTaskRoute, readWorkflowSchema } from "./bsl-flow";
+import type { BslFlow } from "./bsl-flow-model";
 
 export type FileChange = { path: string; type: "create" | "delete" | "update" };
 export type FileUpdate = {
@@ -44,6 +46,8 @@ export class OpenSpecIndex {
   private summaries: Change[] = [];
   private missing = true;
   private modifiedTimes = new Map<string, number>();
+  private flows = new Map<string, BslFlow | null>();
+  private projectSchema: string | undefined | null;
 
   constructor(
     readonly workspacePath: string,
@@ -134,10 +138,31 @@ export class OpenSpecIndex {
     if (ids.length > LIMITS.changes)
       throw pluginError("error.changeLimit", { limit: LIMITS.changes });
     const nextTasks = new Map<string, Tasks>();
+    const nextFlows = new Map<string, BslFlow | null>();
+    const schemaChanged = changes === null || changes.some((change) => change.path === "config.yaml");
+    const projectSchema = schemaChanged
+      ? nextFiles.has("config.yaml") ? await readWorkflowSchema(this.root, "config.yaml") : undefined
+      : this.projectSchema;
+    let route: ReturnType<typeof readSmallTaskRoute> | undefined;
     for (let offset = 0; offset < ids.length; offset += 8) {
       await Promise.all(
         ids.slice(offset, offset + 8).map(async (id) => {
-          const file = `${changeRelative(id)}/tasks.md`;
+          const prefix = changeRelative(id);
+          const changedChange = changes?.some(
+            (change) => changeForPath(change.path) === id ||
+              change.path === prefix || prefix.startsWith(`${change.path}/`),
+          );
+          let flow = this.flows.get(id);
+          if (schemaChanged || changedChange || flow === undefined) {
+            const meta = `${prefix}/.openspec.yaml`;
+            const schema = nextFiles.has(meta) ? await readWorkflowSchema(this.root, meta) : undefined;
+            flow = (schema === undefined ? projectSchema : schema) === "bsl-flow"
+              ? await readBslFlow(this.root, prefix, nextFiles, await (route ??= readSmallTaskRoute(this.workspacePath)))
+              : null;
+          }
+          nextFlows.set(id, flow);
+          if (flow) return;
+          const file = `${prefix}/tasks.md`;
           if (!nextFiles.has(file)) return;
           const changed =
             changes === null ||
@@ -186,13 +211,18 @@ export class OpenSpecIndex {
     this.files = nextFiles;
     this.specifications.invalidate(nextFiles, changes);
     this.tasks = nextTasks;
+    this.flows = nextFlows;
+    this.projectSchema = projectSchema;
+    const allFiles = [...nextFiles];
     this.summaries = ids.map((id) => {
       const task = nextTasks.get(`${changeRelative(id)}/tasks.md`);
+      const flow = nextFlows.get(id);
       return {
         id,
         title: changeTitle(id.split("/").at(-1)!),
         archived: id.startsWith("archive/"),
-        artifacts: artifactsFor([...nextFiles], id),
+        artifacts: artifactsFor(allFiles, id, !!flow),
+        ...(flow ? { bslFlow: flow } : {}),
         ...progress(task?.groups ?? []),
         error: task?.error ?? null,
         updatedAt: Math.max(

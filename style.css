@@ -218,6 +218,64 @@
   border-radius: 50%;
   background: currentColor;
 }
+.os-flow {
+  margin: 0 0 14px;
+}
+.os-flow-stages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(115px, 100%), 1fr));
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.os-flow-stages li {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--os-line);
+  border-radius: 6px;
+  background: var(--os-recess);
+}
+.os-flow-stages span,
+.os-flow-note {
+  color: var(--os-muted);
+}
+.os-flow-stages span,
+.os-flow-chip,
+.os-flow-note {
+  font-size: 11px;
+}
+.os-flow-note {
+  margin: 7px 0 0;
+}
+.os-flow-chip {
+  display: inline-block;
+  justify-self: start;
+  align-self: start;
+  width: fit-content;
+  border: 1px solid var(--os-line);
+  border-radius: 5px;
+  padding: 2px 5px;
+  color: var(--os-muted);
+}
+.os-flow-stages [data-state="passed"] span,
+.os-flow-chip[data-state="passed"] {
+  color: var(--os-accent);
+}
+.os-flow-stages [data-state="blocked"] span,
+.os-flow-chip[data-state="blocked"],
+.os-flow-stages [data-state="stale"] span,
+.os-flow-chip[data-state="stale"] {
+  color: var(--destructive);
+}
+.os-flow-json {
+  max-width: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .os-ring {
   flex-shrink: 0;
   margin-left: auto;

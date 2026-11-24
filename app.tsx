@@ -1,5 +1,6 @@
 import { usePlanningContext, savePlanningContext } from "./src/planning-context";
 import { SpecificationsPanel } from "./src/specifications-panel";
+import { BslFlowProgress, BslFlowReviewStatus } from "./src/bsl-flow-progress";
 import {
   Children,
   useCallback,
@@ -176,7 +177,7 @@ function LaunchDialog({
     change.total ? ACTION.APPLY : ACTION.EXPLORE,
   );
   const [prompt, setPrompt] = useState(() =>
-    initialPrompt(action, change.id, planningSource.rootPath),
+    initialPrompt(action, change.id, planningSource.rootPath, !!change.bslFlow),
   );
   const [execution, setExecution] =
     useState<ExperimentalProviderModelPickerValue | null>(null);
@@ -251,7 +252,7 @@ function LaunchDialog({
               onClick={() => {
                 setAction(value);
                 setPrompt(
-                  initialPrompt(value, change.id, planningSource.rootPath),
+                  initialPrompt(value, change.id, planningSource.rootPath, !!change.bslFlow),
                 );
               }}
             >
@@ -536,13 +537,17 @@ function ChangeDetail({
   const documentKind = change.artifacts.find((artifact) =>
     artifact.paths.includes(documentPath ?? ""),
   );
+  const flow = change.bslFlow;
+  const reportPath = detail.data?.projectTestReport;
   const state = change.archived
     ? t("archived")
-    : !counts.total
-      ? t("preparingArtifacts")
-      : counts.done === counts.total
-        ? t("tasksComplete")
-        : `${number(counts.done)} / ${taskCount(counts.total)}`;
+    : flow
+      ? t("flow.environment", { name: source.name || source.path })
+      : !counts.total
+        ? t("preparingArtifacts")
+        : counts.done === counts.total
+          ? t("tasksComplete")
+          : `${number(counts.done)} / ${taskCount(counts.total)}`;
   return (
     <main className="os-main">
       <div className="os-breadcrumb">changes / {change.id}</div>
@@ -551,8 +556,11 @@ function ChangeDetail({
           <h1>{change.title}</h1>
           <span className="os-state">{state}</span>
         </div>
-        <ProgressRing done={counts.done} total={counts.total} />
+        {flow
+          ? flow.complexity && <span className="os-flow-chip">{flow.complexity}</span>
+          : <ProgressRing done={counts.done} total={counts.total} />}
       </div>
+      {flow && <BslFlowProgress flow={flow} />}
       <div className="os-actions">
         <Button
           className="os-primary"
@@ -588,7 +596,7 @@ function ChangeDetail({
             <b>{t(`artifact.${artifact.kind}`)}</b>
             <small>
               {artifact.paths.length
-                ? artifact.kind === "specs"
+                ? artifact.kind === "specs" && !flow
                   ? specCount(artifact.paths.length)
                   : t("fileExists")
                 : t("fileMissing")}
@@ -596,8 +604,20 @@ function ChangeDetail({
           </button>
         ))}
       </div>
+      {flow && reportPath && (
+        <Button
+          variant="link"
+          size="sm"
+          onClick={() => navigate.experimental_openFilePreview({
+            target: { kind: "host", hostId: source.hostId, path: reportPath },
+            location: null,
+          })}
+        >
+          {t("flow.report")} ↗
+        </Button>
+      )}
       <div className="os-tabs" role="tablist" aria-label={t("changeContents")}>
-        <button
+        {!flow && <button
           role="tab"
           aria-selected={!documentPath && view === VIEW.TASKS}
           onClick={() => {
@@ -609,10 +629,10 @@ function ChangeDetail({
           <em>
             {number(counts.done)}/{number(counts.total)}
           </em>
-        </button>
+        </button>}
         <button
           role="tab"
-          aria-selected={!documentPath && view === VIEW.THREADS}
+          aria-selected={!documentPath && (!!flow || view === VIEW.THREADS)}
           onClick={() => {
             setDocumentPath(undefined);
             setView(VIEW.THREADS);
@@ -652,7 +672,7 @@ function ChangeDetail({
       )}
       {documentPath ? (
         <section className="os-document">
-          {documentKind?.kind === "specs" && (
+          {documentKind?.kind === "specs" && !flow && (
             <select
               aria-label={t("specification")}
               value={documentPath}
@@ -692,15 +712,15 @@ function ChangeDetail({
           {!documentQuery.data && !documentQuery.error && (
             <Message>{t("loadingDocument")}</Message>
           )}
-          {documentQuery.data && (
-            <Markdown content={documentQuery.data.content} />
-          )}
+          {documentQuery.data && (documentPath.endsWith(".json")
+            ? <pre className="os-flow-json">{documentQuery.data.content}</pre>
+            : <Markdown content={documentQuery.data.content} />)}
         </section>
       ) : (
         <section role="tabpanel">
           {!detail.data && !detail.error && <Message>{t("loading")}</Message>}
           {detail.data &&
-            view === VIEW.TASKS &&
+            !flow && view === VIEW.TASKS &&
             (detail.data.groups.length ? (
               detail.data.groups.map((group, index) => (
                 <section key={`${index}-${group.title}`} className="os-group">
@@ -755,7 +775,7 @@ function ChangeDetail({
               </Message>
             ))}
           {detail.data &&
-            view === VIEW.THREADS &&
+            (flow || view === VIEW.THREADS) &&
             (detail.data.threads.length ? (
               detail.data.threads.map((thread) => (
                 <button
@@ -1231,7 +1251,7 @@ function OpenSpecPage({
                   >
                     <strong>{change.title}</strong>
                     <small>{change.id}</small>
-                    <div className="os-change-foot">
+                    {change.bslFlow ? <BslFlowReviewStatus flow={change.bslFlow} /> : <div className="os-change-foot">
                       <span
                         className="os-task-progress"
                         title={taskCount(change.total)}
@@ -1254,7 +1274,7 @@ function OpenSpecPage({
                             ? `${number(change.done)} / ${number(change.total)}`
                             : t("noTasks")}
                       </span>
-                    </div>
+                    </div>}
                     <div className="os-change-meta">
                       {change.total > 0 &&
                         change.done === change.total &&

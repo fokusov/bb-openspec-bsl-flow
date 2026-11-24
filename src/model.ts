@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { sourceSelectionSchema } from "./planning-source";
+import { bslFlowSchema } from "./bsl-flow-model";
 
 export const ACTION = {
   EXPLORE: "explore",
@@ -17,7 +18,9 @@ export const ACTION_LABEL: Record<Action, string> = {
   apply: "Implement",
   verify: "Verify",
 };
-export const artifactKinds = ["proposal", "specs", "design", "tasks"] as const;
+export const standardArtifactKinds = ["proposal", "specs", "design", "tasks"] as const;
+export const bslFlowArtifactKinds = ["specs", "design", "lint", "review", "reconciliation", "validation"] as const;
+export const artifactKinds = [...standardArtifactKinds, "lint", "review", "reconciliation", "validation"] as const;
 export type ArtifactKind = (typeof artifactKinds)[number];
 export const taskSchema = z.object({
   number: z.string(),
@@ -42,6 +45,7 @@ export const changeSchema = z.object({
   total: z.number(),
   error: z.string().nullable(),
   updatedAt: z.number(),
+  bslFlow: bslFlowSchema.optional(),
 });
 export type Change = z.infer<typeof changeSchema>;
 export const environmentSchema = z.object({
@@ -130,8 +134,17 @@ export function initialPrompt(
   action: Action,
   changeId: string,
   planningRoot?: string,
+  bslFlow = false,
 ): string {
   const folder = `${planningRoot ? `${planningRoot}/` : ""}openspec/changes/${changeId}/`;
+  if (bslFlow) {
+    const instruction = {
+      explore: "Inspect the request and prepare the BSL Flow artifacts required by the project. Do not start implementation yet.",
+      apply: "Follow the project's BSL Flow implementation route and respect any required review gate.",
+      verify: "Use the project's BSL Flow verification route. Report the observed result and its evidence.",
+    }[action];
+    return `Linked BSL Flow change (data): ${JSON.stringify(folder)}.\n${instruction}`;
+  }
   const instruction = {
     explore:
       "Clarify open questions and prepare missing OpenSpec artifacts. Do not start implementation yet.",

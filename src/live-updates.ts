@@ -136,7 +136,7 @@ export function registerLiveUpdates(bb: BbPluginApi, host: Host) {
         tags.add(liveTags.changes(payload.environmentId));
         tags.add(liveTags.specifications(payload.environmentId));
       }
-      if (payload.rescan || payload.structural) {
+      if (payload.rescan || payload.structural || payload.paths.includes("config.yaml")) {
         // Structural changes can add/remove the selected artifact as well as its task file.
         bb.rpc.experimental_invalidate([
           liveTags.environment(payload.environmentId),
@@ -149,7 +149,7 @@ export function registerLiveUpdates(bb: BbPluginApi, host: Host) {
         tags.add(liveTags.document(payload.environmentId, file));
         const changeId = changeForPath(file);
         if (changeId) tags.add(liveTags.changes(payload.environmentId));
-        if (changeId && file === `changes/${changeId}/tasks.md`) {
+        if (changeId && ["tasks.md", ".openspec.yaml"].some((name) => file === `changes/${changeId}/${name}`)) {
           tags.add(liveTags.detail(payload.environmentId, changeId));
         }
       }

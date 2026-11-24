@@ -76,6 +76,7 @@ export const rpcContract = defineRpcContract({
     output: z.object({
       groups: z.array(groupSchema),
       threads: z.array(threadSchema),
+      projectTestReport: z.string().optional(),
     }),
   },
   document: {

@@ -277,6 +277,7 @@ test("package only uses the public SDK", async () => {
       /^@radix-ui\/react-(?:slot|dialog|tooltip)$/,
       /^@\/components\/ui\/(?:button|input|icon|dialog|tooltip)$/,
       /^(?:class-variance-authority|clsx|tailwind-merge)$/,
+      /^yaml$/,
     ],
   });
   assert.deepEqual(scan.violations, []);

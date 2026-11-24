@@ -2,6 +2,12 @@
 
 These versions record local development; they do not imply public releases.
 
+## 0.6.0 — BSL Flow edition
+
+- Added a read-only BSL Flow stage view in Changes and in the linked thread panel.
+- Show review status, next action and available evidence. A review receipt stops confirming the gate after its inputs change.
+- Open the project test report as unbound context and retain the upstream task checklist and specification browser for standard OpenSpec.
+
 ## 0.5.0 — 2026-10-28
 
 - Environment-scoped deep links establish shared navigation context, preserving the project when switching between Specs and Changes.

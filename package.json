@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-openspec",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "engines": {
     "bb": ">=0.47",
@@ -22,6 +22,7 @@
   "dependencies": {
     "@get-bb/plugin-sdk": "0.6.79",
     "@radix-ui/react-slot": "^1.3.0",
+    "yaml": "2.9.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -67,11 +68,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/khaale/bb-openspec.git"
+    "url": "https://github.com/fokusov/bb-openspec-bsl-flow.git"
   },
-  "homepage": "https://github.com/khaale/bb-openspec#readme",
+  "homepage": "https://github.com/fokusov/bb-openspec-bsl-flow#readme",
   "bugs": {
-    "url": "https://github.com/khaale/bb-openspec/issues"
+    "url": "https://github.com/fokusov/bb-openspec-bsl-flow/issues"
   },
   "author": {
     "name": "Aleksander Khanteev",

@@ -1,6 +1,6 @@
 import { pluginError } from "./plugin-error";
 import path from "node:path";
-import { artifactKinds } from "./model";
+import { standardArtifactKinds, bslFlowArtifactKinds } from "./model";
 
 export function safeRelative(value: string): string {
   if (
@@ -34,9 +34,21 @@ export function changeForPath(relative: string): string | null {
     return parts.length >= 4 ? `archive/${parts[2]}` : null;
   return parts[1];
 }
-export function artifactsFor(paths: string[], changeId: string) {
+export function artifactsFor(paths: string[], changeId: string, bslFlow = false) {
   const prefix = `${changeRelative(changeId)}/`;
-  return artifactKinds.map((kind) => ({
+  const flowFiles = {
+    specs: "spec.md",
+    design: "design.md",
+    lint: "spec-lint.json",
+    review: "review.json",
+    reconciliation: "review-reconciliation.json",
+    validation: "final-validation.json",
+  };
+  if (bslFlow) return bslFlowArtifactKinds.map((kind) => ({
+    kind,
+    paths: paths.filter((file) => file === prefix + flowFiles[kind]),
+  }));
+  return standardArtifactKinds.map((kind) => ({
     kind,
     paths: paths.filter((file) =>
       kind === "specs"

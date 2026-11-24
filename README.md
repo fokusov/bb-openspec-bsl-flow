@@ -4,6 +4,20 @@ English · [Русский](README.ru.md)
 
 Track OpenSpec changes and task progress in [bb](https://getbb.app/), read specifications, and launch or link agent threads. Tasks stay in your repository.
 
+## BSL Flow edition
+
+This MIT-licensed fork of [khaale/bb-openspec](https://github.com/khaale/bb-openspec) adds an evidence-based BSL Flow view. The first release is based on upstream commit `2798fd7`.
+
+```sh
+bb plugin install 'git:https://github.com/fokusov/bb-openspec-bsl-flow.git@v0.6.0'
+```
+
+The fork uses the existing `openspec` plugin ID. To evaluate both repositories independently, use separate BB profiles.
+
+Open **OpenSpec · Changes** in navigation or beside a thread. Changes with the effective schema `bsl-flow` show the working copy, specification, review gate and available evidence. A successful review requires a supported final-validation receipt bound to current files. The test report link is labelled as project-level context. Implementation and verification show unconfirmed until change-level evidence can be linked.
+
+Use Refresh after a project policy or test report changes outside the OpenSpec directory.
+
 ## Features
 
 - Active and archived changes, search, project and environment selection.
@@ -51,10 +65,10 @@ Open **OpenSpec · Changes** or **OpenSpec · Specs** in bb navigation. To keep 
 Install the current main branch from Git:
 
 ```sh
-bb plugin install 'git:https://github.com/khaale/bb-openspec.git@main'
+bb plugin install 'git:https://github.com/fokusov/bb-openspec-bsl-flow.git@main'
 ```
 
-Tagged releases and version ranges are described in [release preparation](docs/RELEASING.md). A `v0.5.0` release tag has not been created by this update.
+See [the tagged BSL Flow edition](#bsl-flow-edition) for the install command for a fixed release.
 
 ## Specifications
 
