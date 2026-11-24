@@ -55,7 +55,7 @@ export default function plugin(bb: BbPluginApi) {
     const { source, selected } = await planning(environmentId, storeId);
     const result = await host.call(
       "change",
-      { workspacePath: selected.rootPath, storeId: null, changeId },
+      { workspacePath: selected.rootPath, executionPath: source.path, storeId: null, changeId },
       { hostId: source.hostId },
     );
     return {
@@ -181,7 +181,7 @@ export default function plugin(bb: BbPluginApi) {
       const { source, selected } = await planning(environmentId, storeId);
       const result = await host.call(
         "snapshot",
-        { workspacePath: selected.rootPath, storeId: null },
+        { workspacePath: selected.rootPath, executionPath: source.path, storeId: null },
         { hostId: source.hostId },
       );
       const threads = await boundThreads(environmentId);
@@ -203,12 +203,12 @@ export default function plugin(bb: BbPluginApi) {
     },
     specifications: async ({ environmentId, storeId }) => {
       const { source, selected } = await planning(environmentId, storeId);
-      const result = await host.call("specifications", { workspacePath: selected.rootPath, storeId: null }, { hostId: source.hostId });
+      const result = await host.call("specifications", { workspacePath: selected.rootPath, executionPath: source.path, storeId: null }, { hostId: source.hostId });
       return { ...result, source: selected, watchError: live.error(environmentId, storeId) ?? result.watchError };
     },
     specification: async ({ environmentId, storeId, capabilityId, changeId }) => {
       const { source, selected } = await planning(environmentId, storeId);
-      return host.call("specification", { workspacePath: selected.rootPath, storeId: null, capabilityId, ...(changeId ? { changeId } : {}) }, { hostId: source.hostId });
+      return host.call("specification", { workspacePath: selected.rootPath, executionPath: source.path, storeId: null, capabilityId, ...(changeId ? { changeId } : {}) }, { hostId: source.hostId });
     },
     refresh: async ({ environmentId, storeId }) => {
       const source = await workspace(sdk, environmentId);

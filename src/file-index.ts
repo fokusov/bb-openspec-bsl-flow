@@ -48,13 +48,17 @@ export class OpenSpecIndex {
   private modifiedTimes = new Map<string, number>();
   private flows = new Map<string, BslFlow | null>();
   private projectSchema: string | undefined | null;
+  private readonly onTaskRead?: (file: string) => void;
+  readonly executionPath: string;
 
   constructor(
     readonly workspacePath: string,
-    private readonly onTaskRead?: (file: string) => void,
+    options: { executionPath?: string; onTaskRead?: (file: string) => void } = {},
   ) {
-    if (!path.isAbsolute(workspacePath))
+    this.executionPath = options.executionPath ?? workspacePath;
+    if (!path.isAbsolute(workspacePath) || !path.isAbsolute(this.executionPath))
       throw pluginError("error.absolutePathRequired");
+    this.onTaskRead = options.onTaskRead;
     this.root = path.join(workspacePath, "openspec");
     this.specifications = new SpecificationIndex(this.root);
   }
@@ -157,7 +161,7 @@ export class OpenSpecIndex {
             const meta = `${prefix}/.openspec.yaml`;
             const schema = nextFiles.has(meta) ? await readWorkflowSchema(this.root, meta) : undefined;
             flow = (schema === undefined ? projectSchema : schema) === "bsl-flow"
-              ? await readBslFlow(this.root, prefix, nextFiles, await (route ??= readSmallTaskRoute(this.workspacePath)))
+              ? await readBslFlow(this.root, prefix, nextFiles, await (route ??= readSmallTaskRoute(this.executionPath)))
               : null;
           }
           nextFlows.set(id, flow);

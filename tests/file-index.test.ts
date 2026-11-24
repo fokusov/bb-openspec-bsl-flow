@@ -41,7 +41,7 @@ test("idle snapshots and updates of one file do not reread unrelated tasks", asy
   const f = await fixture();
   const reads: string[] = [];
   try {
-    const index = new OpenSpecIndex(f.root, (file) => reads.push(file));
+    const index = new OpenSpecIndex(f.root, { onTaskRead: (file) => reads.push(file) });
     await index.initialize();
     assert.equal(reads.length, 3);
     reads.length = 0;
@@ -168,7 +168,7 @@ test("panels and environments sharing a directory use one watcher until the last
       changes: [{ path: "changes/a/tasks.md", type: "update" }],
     });
     assert.equal(
-      (await pool.snapshot(f.root)).changes.find((c) => c.id === "a")?.done,
+      (await pool.snapshot({ workspacePath: f.root })).changes.find((c) => c.id === "a")?.done,
       1,
     );
     await pool.unsubscribe("two");
@@ -176,7 +176,7 @@ test("panels and environments sharing a directory use one watcher until the last
     // No retained cache: an explicit read after unwatch sees the disk again.
     await f.write("changes/a/tasks.md", "- [ ] A");
     assert.equal(
-      (await pool.snapshot(f.root)).changes.find((c) => c.id === "a")?.done,
+      (await pool.snapshot({ workspacePath: f.root })).changes.find((c) => c.id === "a")?.done,
       0,
     );
   } finally {
@@ -199,7 +199,7 @@ test("deleting and recreating OpenSpec switches the native root without losing u
     await waitFor(() => d.watches.length === 2);
     assert.equal(d.watches[0].disposed, true);
     assert.equal(d.watches[1].options.rootPath, f.root);
-    assert.equal((await pool.snapshot(f.root)).missing, true);
+    assert.equal((await pool.snapshot({ workspacePath: f.root })).missing, true);
     await f.write("changes/new/tasks.md", "- [ ] New");
     await d.watches[1].listener({
       kind: "changed",
@@ -207,7 +207,7 @@ test("deleting and recreating OpenSpec switches the native root without losing u
     });
     await waitFor(() => d.watches.length === 3);
     assert.equal(d.watches[2].options.rootPath, path.join(f.root, "openspec"));
-    assert.equal((await pool.snapshot(f.root)).changes[0].id, "new");
+    assert.equal((await pool.snapshot({ workspacePath: f.root })).changes[0].id, "new");
   } finally {
     await pool.dispose();
     await f.dispose();
@@ -228,14 +228,14 @@ test("watch errors are visible and manual refresh replaces the failed watch", as
       message: "Native watcher failed",
     });
     assert.equal(
-      (await pool.snapshot(f.root)).watchError,
+      (await pool.snapshot({ workspacePath: f.root })).watchError,
       "Native watcher failed",
     );
     await f.write("changes/a/tasks.md", "- [x] A");
-    await pool.refresh(f.root);
+    await pool.refresh({ workspacePath: f.root });
     assert.equal(d.watches[0].disposed, true);
-    assert.equal((await pool.snapshot(f.root)).watchError, null);
-    assert.equal((await pool.change(f.root, "a")).change.done, 1);
+    assert.equal((await pool.snapshot({ workspacePath: f.root })).watchError, null);
+    assert.equal((await pool.change({ workspacePath: f.root }, "a")).change.done, 1);
   } finally {
     await pool.dispose();
     await f.dispose();
@@ -268,8 +268,8 @@ test("a subscription switches planning roots and closes the old watcher", async 
       kind: "changed",
       changes: [{ path: "changes/a/tasks.md", type: "update" }],
     });
-    assert.equal((await pool.change(right.root, "a")).change.done, 1);
-    assert.equal((await pool.change(left.root, "a")).change.done, 0);
+    assert.equal((await pool.change({ workspacePath: right.root }, "a")).change.done, 1);
+    assert.equal((await pool.change({ workspacePath: left.root }, "a")).change.done, 0);
     await pool.unsubscribe("panel");
     assert.equal(d.watches[1].disposed, true);
   } finally {
@@ -282,7 +282,7 @@ test("a subscription switches planning roots and closes the old watcher", async 
 test("artifact modification times update recency without reading unrelated tasks", async () => {
   const f = await fixture();
   const reads: string[] = [];
-  const index = new OpenSpecIndex(f.root, (file) => reads.push(file));
+  const index = new OpenSpecIndex(f.root, { onTaskRead: (file) => reads.push(file) });
   try {
     await index.initialize();
     reads.length = 0;
@@ -328,11 +328,11 @@ test("core coalesces bursts behind slow processing for shared consumers while ot
     const burst = Array.from({ length: 300 }, () => d.watches[0].listener(event));
     await second.write("changes/a/tasks.md", "- [x] Independent source");
     await d.watches[1].listener(event);
-    assert.equal((await pool.snapshot(second.root)).changes.find(change => change.id === "a")?.done, 1);
+    assert.equal((await pool.snapshot({ workspacePath: second.root })).changes.find(change => change.id === "a")?.done, 1);
     release(); await Promise.all([running, ...bulk, ...burst]);
-    assert.equal((await pool.snapshot(first.root)).changes.find(change => change.id === "a")?.done, 1);
-    assert.equal((await pool.specifications(first.root)).entries.length, 60);
-    assert.match((await pool.specification(first.root, "core/bulk-59")).main!.content, /Bulk 59/);
+    assert.equal((await pool.snapshot({ workspacePath: first.root })).changes.find(change => change.id === "a")?.done, 1);
+    assert.equal((await pool.specifications({ workspacePath: first.root })).entries.length, 60);
+    assert.match((await pool.specification({ workspacePath: first.root }, "core/bulk-59")).main!.content, /Bulk 59/);
     assert.equal(d.signals.filter(signal => (signal as { environmentId: string }).environmentId === "first").length, 2, "one running and one coalesced pending update, not 361 queued updates");
     await pool.unsubscribe("changes"); assert.equal(d.watches[0].disposed, false);
     await pool.unsubscribe("specifications"); assert.equal(d.watches[0].disposed, true);

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { watch, type FSWatcher } from "node:fs";
 import { readdir } from "node:fs/promises";
 import type {
   ExperimentalHostRpcContext,
@@ -17,13 +18,24 @@ import { safeRelative } from "./change-paths";
 import { errorMessage } from "./reader-error";
 
 type Context = ExperimentalHostRpcContext<typeof hostSignals>;
+type IndexSource = { workspacePath: string; executionPath?: string };
+type Subscription = IndexSource & { environmentId: string; subscriptionId: string };
+
+function sourceKey(source: IndexSource) {
+  const workspace = path.resolve(source.workspacePath);
+  return JSON.stringify([workspace, path.resolve(source.executionPath ?? workspace)]);
+}
+
 type RecordEntry = {
+  key: string;
   index: OpenSpecIndex;
   subscribers: Map<string, string>;
   context: Context;
   queue: Promise<void>;
   starting?: Promise<void>;
   watcher?: ExperimentalHostWatchSubscription;
+  policyWatcher?: FSWatcher;
+  policyError?: string;
   watchingParent: boolean;
   error: string | null;
   closed: boolean;
@@ -82,7 +94,7 @@ export class WatchPool {
           .experimental_emitSignal("changed", {
             environmentId,
             ...update,
-            error: record.error,
+            error: record.error ?? record.policyError ?? null,
           })
           .catch(() => {
             /* Ephemeral delivery can be lost while disconnected; reconnect rescans. */
@@ -185,22 +197,40 @@ export class WatchPool {
     if (!record.closed) await this.startWatcher(record);
   }
 
-  async subscribe(
-    input: {
-      workspacePath: string;
-      environmentId: string;
-      subscriptionId: string;
-    },
-    context: Context,
-  ) {
-    const key = path.resolve(input.workspacePath);
+  private watchReviewPolicy(record: RecordEntry) {
+    record.policyWatcher?.close();
+    record.policyWatcher = undefined;
+    record.policyError = undefined;
+    try {
+      // Watch the worktree directory non-recursively so atomic saves and a newly created config are visible.
+      const watcher = watch(record.index.executionPath, { persistent: false }, (_event, file) => {
+        if (watcher === record.policyWatcher && (!file || file === "bsl-flow.yaml"))
+          void this.update(record, null).catch(() =>
+            this.publish(record, { paths: [], structural: false, rescan: true }));
+      });
+      record.policyWatcher = watcher;
+      watcher.on("error", (cause) => {
+        if (record.closed || watcher !== record.policyWatcher) return;
+        record.policyError = errorMessage(cause);
+        void this.publish(record, { paths: [], structural: false, rescan: true });
+      });
+    } catch (cause) {
+      record.policyError = errorMessage(cause);
+    }
+  }
+
+  async subscribe(input: Subscription, context: Context) {
+    const key = sourceKey(input);
     const previous = this.subscriptions.get(input.subscriptionId);
-    if (previous?.index.workspacePath === key) return;
+    if (previous?.key === key) return;
     if (previous) await this.unsubscribe(input.subscriptionId);
     let record = this.records.get(key);
     if (!record) {
-      const index = new OpenSpecIndex(key);
+      const index = new OpenSpecIndex(path.resolve(input.workspacePath), {
+        executionPath: input.executionPath && path.resolve(input.executionPath),
+      });
       record = {
+        key,
         index,
         subscribers: new Map(),
         context,
@@ -211,6 +241,7 @@ export class WatchPool {
       };
       this.records.set(key, record);
       const owner = record;
+      this.watchReviewPolicy(owner);
       owner.starting = (async () => {
         try {
           await this.startWatcher(owner);
@@ -239,47 +270,50 @@ export class WatchPool {
     if (record.subscribers.size) return;
     record.closed = true;
     record.pending = undefined;
-    this.records.delete(record.index.workspacePath);
+    this.records.delete(record.key);
+    record.policyWatcher?.close();
     if (record.rearm) clearImmediate(record.rearm);
     await record.starting;
     await record.queue;
     await record.watcher?.dispose();
   }
 
-  private async index(workspacePath: string) {
-    const record = this.records.get(path.resolve(workspacePath));
+  private async index(source: IndexSource) {
+    const record = this.records.get(sourceKey(source));
     if (record) {
       await record.starting;
       await record.queue;
-      return { index: record.index, error: record.error };
+      return { index: record.index, error: record.error ?? record.policyError ?? null };
     }
-    const index = new OpenSpecIndex(workspacePath);
+    const index = new OpenSpecIndex(source.workspacePath, { executionPath: source.executionPath });
     await index.initialize();
     return { index, error: null };
   }
 
-  async snapshot(workspacePath: string) {
-    const { index, error } = await this.index(workspacePath);
+  async snapshot(source: IndexSource) {
+    const { index, error } = await this.index(source);
     return { ...index.snapshot(), watchError: error };
   }
 
-  async change(workspacePath: string, changeId: string) {
-    return (await this.index(workspacePath)).index.change(changeId);
+  async change(source: IndexSource, changeId: string) {
+    return (await this.index(source)).index.change(changeId);
   }
 
-  async specifications(workspacePath: string) {
-    const { index, error } = await this.index(workspacePath);
+  async specifications(source: IndexSource) {
+    const { index, error } = await this.index(source);
     return { entries: await index.specifications.catalog(), missing: index.snapshot().missing, watchError: error };
   }
 
-  async specification(workspacePath: string, capabilityId: string, changeId?: string) {
-    return (await this.index(workspacePath)).index.specifications.document(capabilityId, changeId);
+  async specification(source: IndexSource, capabilityId: string, changeId?: string) {
+    return (await this.index(source)).index.specifications.document(capabilityId, changeId);
   }
 
-  async refresh(workspacePath: string) {
-    const record = this.records.get(path.resolve(workspacePath));
+  async refresh(source: IndexSource) {
+    const record = this.records.get(sourceKey(source));
     if (!record) return;
     await record.starting;
+    if (record.closed) return;
+    this.watchReviewPolicy(record);
     await this.rearm(record);
     await this.enqueue(record, async () => {
       await record.index.initialize();
@@ -288,14 +322,7 @@ export class WatchPool {
     await this.publish(record, { paths: [], structural: true, rescan: true });
   }
 
-  async reconcile(
-    inputs: {
-      workspacePath: string;
-      environmentId: string;
-      subscriptionId: string;
-    }[],
-    context: Context,
-  ) {
+  async reconcile(inputs: Subscription[], context: Context) {
     const desired = new Set(inputs.map((input) => input.subscriptionId));
     await Promise.all(
       [...this.subscriptions.keys()]
@@ -304,8 +331,8 @@ export class WatchPool {
     );
     for (const input of inputs) await this.subscribe(input, context);
     await Promise.all(
-      [...new Set(inputs.map((input) => input.workspacePath))].map((root) =>
-        this.refresh(root),
+      [...new Map(inputs.map((input) => [sourceKey(input), input])).values()].map((source) =>
+        this.refresh(source),
       ),
     );
   }

@@ -41,13 +41,16 @@ export function artifactsFor(paths: string[], changeId: string, bslFlow = false)
     design: "design.md",
     lint: "spec-lint.json",
     review: "review.json",
+    "review-waiver": "review-waiver.md",
     reconciliation: "review-reconciliation.json",
     validation: "final-validation.json",
+    verification: "verification.md",
   };
-  if (bslFlow) return bslFlowArtifactKinds.map((kind) => ({
-    kind,
-    paths: paths.filter((file) => file === prefix + flowFiles[kind]),
-  }));
+  if (bslFlow) return bslFlowArtifactKinds
+    .map((kind) => ({ kind, paths: paths.filter((file) => file === prefix + flowFiles[kind]) }))
+    .filter((artifact) =>
+      artifact.paths.length || (artifact.kind !== "review-waiver" && artifact.kind !== "verification"),
+    );
   return standardArtifactKinds.map((kind) => ({
     kind,
     paths: paths.filter((file) =>

@@ -7,9 +7,16 @@ const pool = new WatchPool();
 const resolver = new SourceResolver();
 async function resolved(input: {
   workspacePath: string;
+  executionPath?: string;
   storeId?: string | null;
 }) {
   return resolver.resolve(input.workspacePath, input.storeId);
+}
+async function indexSource(input: Parameters<typeof resolved>[0]) {
+  return {
+    workspacePath: (await resolved(input)).rootPath,
+    executionPath: input.executionPath ?? input.workspacePath,
+  };
 }
 export default experimental_defineHostEntry({
   contract: hostContract,
@@ -17,15 +24,14 @@ export default experimental_defineHostEntry({
   handlers: {
     resolve: resolved,
     catalog: ({ workspacePath }) => resolver.catalog(workspacePath),
-    specifications: async (input) => pool.specifications((await resolved(input)).rootPath),
-    specification: async (input) => pool.specification((await resolved(input)).rootPath, input.capabilityId, input.changeId),
-    snapshot: async (input) => pool.snapshot((await resolved(input)).rootPath),
+    specifications: async (input) => pool.specifications(await indexSource(input)),
+    specification: async (input) => pool.specification(await indexSource(input), input.capabilityId, input.changeId),
+    snapshot: async (input) => pool.snapshot(await indexSource(input)),
     change: async (input) =>
-      pool.change((await resolved(input)).rootPath, input.changeId),
+      pool.change(await indexSource(input), input.changeId),
     watch: async (input, context) => {
-      const source = await resolved(input);
       await pool.subscribe(
-        { ...input, workspacePath: source.rootPath },
+        { ...input, ...await indexSource(input) },
         context,
       );
       return null;
@@ -40,7 +46,7 @@ export default experimental_defineHostEntry({
       const inputs = await Promise.all(
         subscriptions.map(async (input) => ({
           ...input,
-          workspacePath: (await resolved(input)).rootPath,
+          ...await indexSource(input),
         })),
       );
       await pool.reconcile(inputs, context);
@@ -48,7 +54,7 @@ export default experimental_defineHostEntry({
     },
     refresh: async (input) => {
       resolver.clear(input.workspacePath);
-      await pool.refresh((await resolved(input)).rootPath);
+      await pool.refresh(await indexSource(input));
       return null;
     },
   },

@@ -14,6 +14,7 @@ import {
 const sourceSchema = sourceSelectionSchema.extend({
   workspacePath: z.string().min(1),
 });
+const indexSourceSchema = sourceSchema.extend({ executionPath: z.string().min(1).optional() });
 export const snapshotSchema = z.object({
   changes: z.array(changeSchema),
   missing: z.boolean(),
@@ -22,11 +23,11 @@ export const snapshotSchema = z.object({
 export const hostContract = defineRpcContract({
   resolve: { input: sourceSchema, output: planningSourceSchema },
   catalog: { input: sourceSchema, output: planningCatalogSchema },
-  specifications: { input: sourceSchema, output: specificationCatalogSchema },
-  specification: { input: sourceSchema.extend(specificationInputSchema.shape), output: specificationDocumentSchema },
-  snapshot: { input: sourceSchema, output: snapshotSchema },
+  specifications: { input: indexSourceSchema, output: specificationCatalogSchema },
+  specification: { input: indexSourceSchema.extend(specificationInputSchema.shape), output: specificationDocumentSchema },
+  snapshot: { input: indexSourceSchema, output: snapshotSchema },
   change: {
-    input: sourceSchema.extend({ changeId: z.string() }),
+    input: indexSourceSchema.extend({ changeId: z.string() }),
     output: z.object({ change: changeSchema, groups: z.array(groupSchema) }),
   },
   watch: {

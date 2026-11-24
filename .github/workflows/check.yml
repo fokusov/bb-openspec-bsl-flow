@@ -21,3 +21,15 @@ jobs:
       - run: npm ci --include=dev --ignore-scripts
       - run: npm run check
       - run: npm run verify:git-build
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npx tsx --test tests/windows-cli.test.ts tests/bsl-flow.test.ts

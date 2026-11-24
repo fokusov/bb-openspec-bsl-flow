@@ -2,6 +2,12 @@
 
 These versions record local development; they do not imply public releases.
 
+## 0.6.1
+
+- Resolve OpenSpec on Windows, including the npm command shim, for store discovery and selection.
+- Read and watch BSL Flow review policy in the selected code worktree, even when multiple worktrees share an OpenSpec store.
+- Open change-scoped verification reports and review waivers from the Changes panel. Document presence is displayed independently of the review and verification verdicts.
+
 ## 0.6.0 — BSL Flow edition
 
 - Added a read-only BSL Flow stage view in Changes and in the linked thread panel.

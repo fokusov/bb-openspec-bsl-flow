@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import { projectBslFlow } from "../src/bsl-flow";
 import { OpenSpecIndex } from "../src/file-index";
+import { WatchPool } from "../src/watch-pool";
+import type { ExperimentalHostRpcContext } from "@get-bb/plugin-sdk/host";
+import type { hostSignals } from "../src/host-contract";
 
 const sha = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value));
@@ -100,4 +104,50 @@ test("two indexes isolate BSL Flow changes and preserve standard OpenSpec task p
   await firstIndex.update([{ path: "changes/same/spec.md", type: "update" }]);
   assert.equal(firstIndex.change("same").change.bslFlow?.complexity, "L");
   assert.equal(secondIndex.change("same").change.bslFlow?.complexity, "M");
+});
+
+test("a shared planning store uses and watches each worktree's own review policy", async (t) => {
+  const base = await mkdtemp(path.join(tmpdir(), "bb-openspec-policy-"));
+  const pool = new WatchPool();
+  t.after(async () => {
+    await pool.dispose();
+    await rm(base, { recursive: true, force: true });
+  });
+  const workspacePath = path.join(base, "store");
+  const changeDir = path.join(workspacePath, "openspec", "changes", "small");
+  await mkdir(changeDir, { recursive: true });
+  await writeFile(path.join(workspacePath, "openspec", "config.yaml"), "schema: bsl-flow\n");
+  await writeFile(path.join(workspacePath, "bsl-flow.yaml"), "review: { routing: { s_default: required } }\n");
+  await writeFile(path.join(changeDir, "spec.md"), spec("S", "low"));
+  await writeFile(path.join(changeDir, "verification.md"), "# Verification\n");
+  await writeFile(path.join(changeDir, "review-waiver.md"), "# Waiver\n");
+
+  const first = { workspacePath, executionPath: path.join(base, "first") };
+  const second = { workspacePath, executionPath: path.join(base, "second") };
+  await Promise.all([first, second].map(({ executionPath }) => mkdir(executionPath)));
+  await writeFile(path.join(first.executionPath, "bsl-flow.yaml"), "review: { routing: { s_default: optional } }\n");
+  await writeFile(path.join(second.executionPath, "bsl-flow.yaml"), "review: { routing: { s_default: required } }\n");
+  const context = {
+    experimental_watch: async () => ({ dispose: async () => {} }),
+    experimental_emitSignal: async () => {},
+  } as unknown as ExperimentalHostRpcContext<typeof hostSignals>;
+  await pool.subscribe({ ...first, environmentId: "first", subscriptionId: "first" }, context);
+  await pool.subscribe({ ...second, environmentId: "second", subscriptionId: "second" }, context);
+  assert.equal((await pool.snapshot(first)).changes[0].bslFlow?.review, "optional");
+  const change = (await pool.change(second, "small")).change;
+  assert.equal(change.bslFlow?.review, "required");
+  assert.deepEqual(change.artifacts.filter((item) => item.kind === "verification" || item.kind === "review-waiver"), [
+    { kind: "review-waiver", paths: ["changes/small/review-waiver.md"] },
+    { kind: "verification", paths: ["changes/small/verification.md"] },
+  ]);
+
+  const replacement = path.join(second.executionPath, "bsl-flow.yaml.tmp");
+  await writeFile(replacement, "review: { routing: { s_default: optional } }\n");
+  await rename(replacement, path.join(second.executionPath, "bsl-flow.yaml"));
+  for (let attempt = 0; attempt < 150; attempt++) {
+    if ((await pool.change(second, "small")).change.bslFlow?.review === "optional") break;
+    await delay(20);
+  }
+  assert.equal((await pool.change(second, "small")).change.bslFlow?.review, "optional");
+  assert.equal((await pool.change(first, "small")).change.bslFlow?.review, "optional");
 });

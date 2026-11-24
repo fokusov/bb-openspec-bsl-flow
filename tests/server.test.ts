@@ -40,6 +40,11 @@ function setup() {
       }
       if (method === "catalog")
         return { stores: [{ id: "team" }], warning: null };
+      if (method === "snapshot" || method === "change") {
+        const selection = input as { workspacePath: string; executionPath: string };
+        assert.equal(selection.executionPath, "/project");
+        assert.ok(["/project", state.storeRoot].includes(selection.workspacePath));
+      }
       const paths = Object.keys(documents);
       const ids = [
         ...new Set(

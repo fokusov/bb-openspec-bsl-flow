@@ -67,12 +67,12 @@ for (const root of roots) {
   );
   let reads = 0;
   const initialIndex = await measured(async () => {
-    const index = new OpenSpecIndex(root, () => reads++);
+    const index = new OpenSpecIndex(root, { onTaskRead: () => reads++ });
     reads = 0;
     await index.initialize();
     return { changes: index.snapshot().changes.length, taskReads: reads };
   });
-  const liveIndex = new OpenSpecIndex(root, () => reads++);
+  const liveIndex = new OpenSpecIndex(root, { onTaskRead: () => reads++ });
   await liveIndex.initialize();
   const oneFile = await measured(async () => {
     reads = 0;

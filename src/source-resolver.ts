@@ -1,5 +1,6 @@
 import { pluginError } from "./plugin-error";
 import { execFile } from "node:child_process";
+import { stat } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
 import { z } from "zod";
@@ -23,14 +24,52 @@ const storesSchema = z.object({
   stores: z.array(z.object({ id: storeIdSchema })),
 });
 
+async function windowsOpenSpec() {
+  for (const entry of (process.env.PATH ?? "").split(path.delimiter)) {
+    const directory = entry.replace(/^"(.*)"$/, "$1");
+    if (!path.isAbsolute(directory)) continue;
+    for (const name of ["openspec.exe", "openspec.cmd"]) {
+      const candidate = path.join(directory, name);
+      try {
+        if ((await stat(candidate)).isFile()) return candidate;
+      } catch (cause) {
+        if (!["ENOENT", "ENOTDIR"].includes((cause as NodeJS.ErrnoException).code ?? ""))
+          throw cause;
+      }
+    }
+  }
+}
+
+async function executeOpenSpec(args: string[], cwd: string) {
+  const options = {
+    cwd,
+    timeout: 15_000,
+    maxBuffer: 2 * 1024 * 1024,
+    windowsHide: true,
+    env: { ...process.env, OPENSPEC_TELEMETRY: "0", DO_NOT_TRACK: "1" },
+  };
+  if (process.platform !== "win32") return exec("openspec", args, options);
+  const command = await windowsOpenSpec();
+  if (!command) throw Object.assign(new Error("openspec was not found on PATH"), { code: "ENOENT" });
+  if (command.endsWith(".exe")) return exec(command, args, options);
+
+  // npm installs a .cmd shim on Windows. Only allow plain CLI tokens in cmd.exe.
+  if (args.some((argument) => !argument || /[^a-zA-Z0-9._-]/.test(argument)))
+    throw new Error("Invalid OpenSpec CLI argument");
+  return exec(
+    path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe"),
+    ["/d", "/v:off", "/s", "/c", `""%BB_OPENSPEC_CLI%" ${args.join(" ")}"`],
+    {
+      ...options,
+      env: { ...options.env, BB_OPENSPEC_CLI: command },
+      windowsVerbatimArguments: true,
+    },
+  );
+}
+
 export const runOpenSpec: RunOpenSpec = async (args, cwd) => {
   try {
-    const result = await exec("openspec", args, {
-      cwd,
-      timeout: 15_000,
-      maxBuffer: 2 * 1024 * 1024,
-      env: { ...process.env, OPENSPEC_TELEMETRY: "0", DO_NOT_TRACK: "1" },
-    });
+    const result = await executeOpenSpec(args, cwd);
     return JSON.parse(result.stdout);
   } catch (cause) {
     if ((cause as NodeJS.ErrnoException).code === "ENOENT")

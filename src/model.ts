@@ -19,8 +19,9 @@ export const ACTION_LABEL: Record<Action, string> = {
   verify: "Verify",
 };
 export const standardArtifactKinds = ["proposal", "specs", "design", "tasks"] as const;
-export const bslFlowArtifactKinds = ["specs", "design", "lint", "review", "reconciliation", "validation"] as const;
-export const artifactKinds = [...standardArtifactKinds, "lint", "review", "reconciliation", "validation"] as const;
+export const bslFlowEvidenceKinds = ["lint", "review", "review-waiver", "reconciliation", "validation", "verification"] as const;
+export const bslFlowArtifactKinds = ["specs", "design", ...bslFlowEvidenceKinds] as const;
+export const artifactKinds = [...standardArtifactKinds, ...bslFlowEvidenceKinds] as const;
 export type ArtifactKind = (typeof artifactKinds)[number];
 export const taskSchema = z.object({
   number: z.string(),
