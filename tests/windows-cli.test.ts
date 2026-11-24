@@ -17,12 +17,13 @@ test("Windows OpenSpec uses the npm shim on PATH and passes validated arguments"
   await mkdir(bin);
   await writeFile(path.join(workspace, "openspec.cmd"), "@echo {\"shadowed\":true}\r\n");
   await writeFile(path.join(bin, "openspec.cmd"),
-    '@echo off\r\necho {"args":"%*","telemetry":"%OPENSPEC_TELEMETRY%"}\r\n');
+    '@echo off\r\necho {"args":"%*","telemetry":"%OPENSPEC_TELEMETRY%","pathOnly":"%NoDefaultCurrentDirectoryInExePath%"}\r\n');
   process.env.PATH = `"${bin}"`;
 
   assert.deepEqual(await runOpenSpec(["context", "--json", "--store", "team-1.dev_2"], workspace), {
     args: "context --json --store team-1.dev_2",
     telemetry: "0",
+    pathOnly: "1",
   });
   await assert.rejects(runOpenSpec(["context", "--store", "invalid&token"], workspace), /Invalid OpenSpec CLI argument/);
   await assert.rejects(runOpenSpec(["context", "--store", "invalid\n"], workspace), /Invalid OpenSpec CLI argument/);

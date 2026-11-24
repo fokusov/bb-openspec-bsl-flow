@@ -61,7 +61,12 @@ async function executeOpenSpec(args: string[], cwd: string) {
     ["/d", "/v:off", "/s", "/c", `""%BB_OPENSPEC_CLI%" ${args.join(" ")}"`],
     {
       ...options,
-      env: { ...options.env, BB_OPENSPEC_CLI: command },
+      env: {
+        ...options.env,
+        BB_OPENSPEC_CLI: command,
+        // npm's shim may resolve node by name. Search PATH without implicitly adding the worktree.
+        NoDefaultCurrentDirectoryInExePath: "1",
+      },
       windowsVerbatimArguments: true,
     },
   );
