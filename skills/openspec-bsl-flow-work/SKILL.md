@@ -1,5 +1,5 @@
 ---
-name: openspec-work
+name: openspec-bsl-flow-work
 description: Work on linked OpenSpec changes or assign changes to BB agent threads; keep repository artifacts and task progress current.
 ---
 
@@ -29,7 +29,7 @@ appropriate to the project.
 ## Assign changes to threads
 
 When the user has authorized delegation, a manager can use the plugin RPCs
-through `bb plugin rpc call openspec <method> --input-file <json-file> --json`.
+through `bb plugin rpc call openspec-bsl-flow <method> --input-file <json-file> --json`.
 Use structured JSON files; never interpolate prompts into shell commands.
 
 - `changes`: `{ "environmentId": "env_..." }` lists progress and linked threads.
@@ -67,7 +67,7 @@ root discovery and active watcher paths; ordinary file events do not run CLI.
 
 ## Read specifications
 
-The navigation destinations are **OpenSpec · Changes** and **OpenSpec · Specs**.
+The navigation destinations are **OpenSpec BSL Flow · Changes** and **OpenSpec BSL Flow · Specs**.
 Both are also available in the thread panel Actions menu. They share user-selected project/environment/planning source within the browser;
 thread-embedded panels retain the thread's environment and binding.
 

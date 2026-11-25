@@ -1,11 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { SpecificationIndex } from "../src/specification-index.ts";
 import { OpenSpecIndex } from "../src/file-index.ts";
 import { parseDelta, projectSpecification } from "../src/specification-projection.ts";
+import { createFileSymlinkOrSkip } from "./symlink-capability.ts";
 
 const requirement = (name: string, text = name) => `### Requirement: ${name}\nThe system SHALL ${text}.\n\n#### Scenario: ${name}\n- **WHEN** invoked\n- **THEN** ${text}`;
 const main = `# Test\n\n## Purpose\nRead specs.\n\n## Requirements\n\n${requirement("A")}\n\n${requirement("B")}`;
@@ -95,24 +96,39 @@ test("document cache avoids idle/unrelated reads and refreshes only changed spec
   } finally { await f.dispose(); }
 });
 
-test("change-only reading works without CLI; errors keep the other source readable and confinement rejects traversal and symlinks", async () => {
+test("change-only reading works without CLI; errors keep the other source readable and confinement rejects traversal", async () => {
   const f = await fixture();
   try {
     await f.write("changes/new/specs/core/new/spec.md", `## ADDED Requirements\n${requirement("New")}`);
     await f.write("specs/core/new/spec.md", main);
     const index = new SpecificationIndex(f.root); index.invalidate(f.files, null);
     for (const id of ["../core", "/core", "C:/core", "core\\new"]) await assert.rejects(() => index.document(id), /path/);
-    await writeFile(path.join(f.workspace, "outside.md"), "outside");
-    await rm(path.join(f.root, "specs/core/new/spec.md"));
-    await symlink(path.join(f.workspace, "outside.md"), path.join(f.root, "specs/core/new/spec.md"));
-    const partial = await index.document("core/new", "new");
-    assert.equal(partial.main, null); assert.ok(partial.delta); assert.equal(partial.proposed, null);
-    assert.match(partial.readErrors[0].message, /outside/);
-    await rm(path.join(f.root, "specs/core/new/spec.md")); f.files.delete("specs/core/new/spec.md"); index.invalidate(f.files, null);
     assert.match((await index.document("core/new", "new")).proposed!, /Requirement: New/);
     await f.write("changes/new/specs/core/new/spec.md", "x".repeat(512 * 1024 + 1)); index.invalidate(f.files, null);
     assert.match((await index.document("core/new", "new")).readErrors[0].message, /512 KiB/);
   } finally { await f.dispose(); }
+});
+
+test("specification reads reject file symlinks that escape the OpenSpec root", async (t) => {
+  const f = await fixture();
+  try {
+    await f.write("specs/core/new/spec.md", main);
+    await f.write("changes/new/specs/core/new/spec.md", `## ADDED Requirements\n${requirement("New")}`);
+    const index = new SpecificationIndex(f.root);
+    index.invalidate(f.files, null);
+    const outside = path.join(f.workspace, "outside.md");
+    const specFile = path.join(f.root, "specs/core/new/spec.md");
+    await writeFile(outside, "outside");
+    await rm(specFile);
+    if (!(await createFileSymlinkOrSkip(t, outside, specFile))) return;
+    const partial = await index.document("core/new", "new");
+    assert.equal(partial.main, null);
+    assert.ok(partial.delta);
+    assert.equal(partial.proposed, null);
+    assert.match(partial.readErrors[0].message, /outside/);
+  } finally {
+    await f.dispose();
+  }
 });
 
 test("unsupported structure and conflicting operations never produce a silent partial projection", () => {

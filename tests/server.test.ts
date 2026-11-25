@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
 import {
   createFakePluginHost,
   makeThreadResponse,
@@ -21,9 +20,15 @@ function setup() {
     "changes/draft/proposal.md": "Draft",
     "changes/archive/2026-10-01-old/tasks.md": "- [x] Done",
   };
-  const state = { missing: false, failure: "", storeRoot: "/stores/team" };
+  const state = {
+    missing: false,
+    failure: "",
+    managedStatusError: "",
+    managedStatusRequests: [] as { workspacePath: string; taskId: string }[],
+    storeRoot: "/stores/team",
+  };
   const { bb, harness } = createFakePluginHost({
-    pluginId: "openspec",
+    pluginId: "openspec-bsl-flow",
     experimental_callHostRpc: async ({ method, input }) => {
       if (state.failure) throw new Error(state.failure);
       if (method === "resolve") {
@@ -40,10 +45,26 @@ function setup() {
       }
       if (method === "catalog")
         return { stores: [{ id: "team" }], warning: null };
+      if (method === "managedTaskStatus") {
+        const request = input as { workspacePath: string; taskId: string };
+        state.managedStatusRequests.push(request);
+        if (state.managedStatusError) throw new Error(state.managedStatusError);
+        return {
+          schema_version: 1,
+          task_id: request.taskId,
+          revision: 4,
+          status: "running",
+          stage: "verify",
+          next_stage: "acceptance",
+          next_action: "complete_verification",
+          blockers: [],
+          evidence_refs: [],
+        };
+      }
       if (method === "snapshot" || method === "change") {
         const selection = input as { workspacePath: string; executionPath: string };
-        assert.equal(selection.executionPath, "/project");
-        assert.ok(["/project", state.storeRoot].includes(selection.workspacePath));
+        assert.ok(["/project", "/project-wt"].includes(selection.executionPath));
+        assert.ok(["/project", "/project-wt", state.storeRoot].includes(selection.workspacePath));
       }
       const paths = Object.keys(documents);
       const ids = [
@@ -101,13 +122,16 @@ function setup() {
     "files.read",
     async (input: { path: string; hostId: string; rootPath: string }) => {
       assert.equal(input.hostId, "host-1");
+      const logicalPath = (value: string) =>
+        value.replaceAll("\\", "/").replace(/\/+/g, "/").replace(/\/$/, "");
+      const root = logicalPath(input.rootPath);
+      const file = logicalPath(input.path);
       assert.ok(
-        ["/project/openspec", `${state.storeRoot}/openspec`].includes(
-          input.rootPath,
-        ),
+        ["/project/openspec", `${state.storeRoot}/openspec`].includes(root),
+        `${root} is not a test OpenSpec root`,
       );
-      const relative = path.relative(input.rootPath, input.path);
-      assert.ok(!relative.startsWith(".."));
+      assert.ok(file.startsWith(`${root}/`), `${file} is outside ${root}`);
+      const relative = file.slice(root.length + 1);
       if (!(relative in documents)) throw new Error("ENOENT");
       return {
         content: documents[relative],
@@ -210,7 +234,12 @@ test("launch reuses the selected environment, settings and edited prompt", async
     assert.equal(spawn.model, execution.model);
     assert.equal(spawn.permissionMode, execution.permissionMode);
     assert.match(String(spawn.prompt), /Edited brief/);
-    assert.match(String(spawn.prompt), /changes\/example/);
+    assert.ok(
+      String(spawn.prompt)
+        .replaceAll("\\", "/")
+        .replace(/\/+/g, "/")
+        .includes("changes/example"),
+    );
     assert.deepEqual(spawn.pluginMetadata, { ...target, storeId: null });
     assert.equal(spawn.visibility, "visible");
   } finally {
@@ -268,8 +297,166 @@ test("attachment only writes metadata and rejects another environment", async ()
       }),
       { ok: true },
     );
+    const [metadataUpdate] = harness.inspection.sdk.callsTo(
+      "threads.updatePluginMetadata",
+    )[0] as [{ remove?: string[] }];
+    assert.deepEqual(metadataUpdate.remove, ["managedTask"]);
     assert.equal(harness.inspection.sdk.callsTo("threads.send").length, 0);
     assert.equal(harness.inspection.sdk.callsTo("threads.spawn").length, 0);
+  } finally {
+    await harness.lifecycle.dispose();
+  }
+});
+
+test("managed task links bind the exact UUID to its change, source, and worktree", async () => {
+  const { harness } = setup();
+  const first = makeThreadResponse({ id: "thread-1", environmentId: "env-1" });
+  const second = makeThreadResponse({ id: "thread-2", environmentId: "env-2" });
+  const firstTask = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const secondTask = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const metadata = new Map<string, Record<string, unknown>>();
+  let selectedThread = first;
+  const targetFor = (environmentId: string, changeId: string, storeId: string | null) => ({
+    environmentId,
+    changeId,
+    storeId,
+  });
+  harness.sdk.stub("environments.get", async ({ environmentId }: { environmentId: string }) => ({
+    id: environmentId,
+    projectId: "project-1",
+    path: environmentId === "env-1" ? "/project" : "/project-wt",
+    hostId: "host-1",
+    status: "ready",
+    lifecycle: { phase: "active" },
+    name: environmentId,
+    branchName: null,
+  }));
+  harness.sdk.stub("threads.get", async () => selectedThread);
+  harness.sdk.stub("threads.list", async ({ environmentId }: { environmentId: string }) =>
+    environmentId === "env-1" ? [first] : [second],
+  );
+  harness.sdk.stub("threads.experimental_listPluginMetadata", async ({ threadIds }: { threadIds: string[] }) => ({
+    threads: threadIds.map((threadId) => ({ threadId, metadata: metadata.get(threadId) ?? {} })),
+  }));
+  harness.sdk.stub("threads.updatePluginMetadata", async ({ threadId, set }: { threadId: string; set: Record<string, unknown> }) => {
+    metadata.set(threadId, set);
+    return set;
+  });
+  try {
+    selectedThread = first;
+    await harness.behavior.callRpc("attach", {
+      ...targetFor("env-1", "example", null),
+      threadId: first.id,
+      managedTaskId: firstTask,
+    });
+    selectedThread = second;
+    await harness.behavior.callRpc("attach", {
+      ...targetFor("env-2", "example", "team"),
+      threadId: second.id,
+      managedTaskId: secondTask,
+    });
+    assert.deepEqual(metadata.get(first.id), {
+      environmentId: "env-1",
+      changeId: "example",
+      storeId: null,
+      managedTask: {
+        taskId: firstTask,
+        environmentId: "env-1",
+        changeId: "example",
+        storeId: null,
+      },
+    });
+    assert.deepEqual(metadata.get(second.id), {
+      environmentId: "env-2",
+      changeId: "example",
+      storeId: "team",
+      managedTask: {
+        taskId: secondTask,
+        environmentId: "env-2",
+        changeId: "example",
+        storeId: "team",
+      },
+    });
+    const firstChoices = rpcContract.threadChoices.output.parse(
+      await harness.behavior.callRpc("threadChoices", { environmentId: "env-1" }),
+    );
+    const secondChoices = rpcContract.threadChoices.output.parse(
+      await harness.behavior.callRpc("threadChoices", { environmentId: "env-2" }),
+    );
+    assert.equal(firstChoices[0]?.managedTaskId, firstTask);
+    assert.equal(firstChoices[0]?.changeId, "example");
+    assert.equal(firstChoices[0]?.storeId, null);
+    assert.equal(secondChoices[0]?.managedTaskId, secondTask);
+    assert.equal(secondChoices[0]?.changeId, "example");
+    assert.equal(secondChoices[0]?.storeId, "team");
+    metadata.set(first.id, {
+      ...metadata.get(first.id),
+      managedTask: {
+        taskId: firstTask,
+        environmentId: "env-2",
+        changeId: "example",
+        storeId: null,
+      },
+    });
+    const mismatched = rpcContract.threadChoices.output.parse(
+      await harness.behavior.callRpc("threadChoices", { environmentId: "env-1" }),
+    );
+    assert.equal(mismatched[0]?.managedTaskId, null);
+    assert.equal(mismatched[0]?.changeId, "example");
+  } finally {
+    await harness.lifecycle.dispose();
+  }
+});
+
+test("detail reads Status for the linked UUID on the selected code worktree and isolates controller errors", async () => {
+  const { harness, state } = setup();
+  const taskId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const thread = makeThreadResponse({
+    id: "managed-thread",
+    environmentId: "env-1",
+    projectId: "project-1",
+  });
+  harness.sdk.stub("threads.list", async () => [thread]);
+  harness.sdk.stub("threads.experimental_listPluginMetadata", async () => ({
+    threads: [{
+      threadId: thread.id,
+      metadata: {
+        environmentId: "env-1",
+        changeId: "example",
+        storeId: "team",
+        managedTask: {
+          taskId,
+          environmentId: "env-1",
+          changeId: "example",
+          storeId: "team",
+        },
+      },
+    }],
+  }));
+  try {
+    const result = rpcContract.detail.output.parse(
+      await harness.behavior.callRpc("detail", {
+        ...target,
+        storeId: "team",
+      }),
+    );
+    assert.deepEqual(state.managedStatusRequests, [
+      { workspacePath: "/project", taskId },
+    ]);
+    assert.equal(result.threads[0]?.managedTaskStatus?.task_id, taskId);
+    assert.equal(result.threads[0]?.managedTaskStatus?.status, "running");
+    assert.equal(result.threads[0]?.managedTaskStatus?.next_action, "complete_verification");
+
+    state.managedStatusError = "BSL Flow controller is unavailable.";
+    const unavailable = rpcContract.detail.output.parse(
+      await harness.behavior.callRpc("detail", {
+        ...target,
+        storeId: "team",
+      }),
+    );
+    assert.equal(unavailable.groups.length, result.groups.length);
+    assert.equal(unavailable.threads[0]?.managedTaskStatus, null);
+    assert.match(unavailable.threads[0]?.managedTaskError ?? "", /unavailable/);
   } finally {
     await harness.lifecycle.dispose();
   }
@@ -384,15 +571,15 @@ test("reattachment persists across reads and invalidates both cards and thread c
       0,
     );
     assert.deepEqual(invalidations.at(-1), [
-      "openspec:threads:env-1",
-      "openspec:changes:env-1",
-      "openspec:binding:thread",
+      "openspec-bsl-flow:threads:env-1",
+      "openspec-bsl-flow:changes:env-1",
+      "openspec-bsl-flow:binding:thread",
     ]);
     invalidations.length = 0;
     await harness.behavior.emitThreadEvent("thread.active", { thread });
     assert.deepEqual(invalidations.at(-1), [
-      "openspec:threads:env-1",
-      "openspec:changes:env-1",
+      "openspec-bsl-flow:threads:env-1",
+      "openspec-bsl-flow:changes:env-1",
     ]);
   } finally {
     await harness.lifecycle.dispose();
@@ -466,7 +653,7 @@ test("store bindings are isolated from an identical local change and launches ke
       }),
     );
     assert.equal(
-      doc.absolutePath,
+      doc.absolutePath.replaceAll("\\", "/").replace(/\/+/g, "/"),
       `${state.storeRoot}/openspec/changes/example/proposal.md`,
     );
     await harness.behavior.callRpc("launch", {
@@ -486,9 +673,10 @@ test("store bindings are isolated from an identical local change and launches ke
     assert.deepEqual(spawn.pluginMetadata, { ...target, storeId: "team" });
     assert.match(String(spawn.prompt), /--store "team"/);
     assert.ok(
-      String(spawn.prompt).includes(
-        `${state.storeRoot}/openspec/changes/example`,
-      ),
+      String(spawn.prompt)
+        .replaceAll("\\", "/")
+        .replace(/\/+/g, "/")
+        .includes(`${state.storeRoot}/openspec/changes/example`),
     );
     await harness.behavior.callRpc("attach", {
       ...target,

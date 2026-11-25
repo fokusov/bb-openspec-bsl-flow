@@ -1,0 +1,31 @@
+{
+  "id": "openspec-bsl-flow",
+  "displayName": "OpenSpec BSL Flow",
+  "description": "Browse OpenSpec changes and specifications, inspect BSL Flow evidence, and link agent threads.",
+  "icon": "ListTodo",
+  "author": {
+    "name": "fokusov",
+    "github": "fokusov",
+    "url": "https://github.com/fokusov"
+  },
+  "category": "tasks-and-workflows",
+  "secondaryCategories": [
+    "code-and-reviews"
+  ],
+  "tags": [
+    "openspec",
+    "bsl-flow"
+  ],
+  "source": {
+    "git": {
+      "url": "https://github.com/fokusov/bb-openspec-bsl-flow.git",
+      "ref": "v0.6.2"
+    }
+  },
+  "screenshots": [
+    "./screenshots/openspec-bsl-flow/changes.jpg",
+    "./screenshots/openspec-bsl-flow/specifications.jpg",
+    "./screenshots/openspec-bsl-flow/changes-and-specs.jpg"
+  ],
+  "overview": "./overview/openspec-bsl-flow.md"
+}

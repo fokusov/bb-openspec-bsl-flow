@@ -52,14 +52,14 @@ try {
       await readFile(path.join(fixture, `dist/${entry}.meta.json`), "utf8"),
     );
     if (
-      metadata.pluginId !== "openspec" ||
+      metadata.pluginId !== "openspec-bsl-flow" ||
       metadata.pluginVersion !== manifest.version
     ) {
       throw new Error(`Unexpected identity in ${entry} build metadata`);
     }
   }
   console.log(
-    `PASS clean Git build: openspec@${manifest.version}, production dependencies only`,
+    `PASS clean Git build: openspec-bsl-flow@${manifest.version}, production dependencies only`,
   );
 } finally {
   await rm(temporary, { recursive: true, force: true });

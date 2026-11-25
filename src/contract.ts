@@ -109,7 +109,10 @@ export const rpcContract = defineRpcContract({
     ),
   },
   attach: {
-    input: targetSchema.extend({ threadId: z.string() }),
+    input: targetSchema.extend({
+      threadId: z.string(),
+      managedTaskId: z.string().uuid().optional(),
+    }),
     output: z.object({ ok: z.literal(true) }),
   },
 });

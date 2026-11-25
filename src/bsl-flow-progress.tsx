@@ -4,7 +4,7 @@ import { useI18n } from "./i18n-react";
 export function BslFlowReviewStatus({ flow }: { flow: BslFlow }) {
   const { t } = useI18n();
   return (
-    <span className="os-flow-chip" data-state={flow.review}>
+    <span className="osb-flow-chip" data-state={flow.review}>
       {t("flow.reviewSummary", { state: t(`flow.review.${flow.review}`) })}
     </span>
   );
@@ -14,8 +14,8 @@ export function BslFlowProgress({ flow }: { flow: BslFlow }) {
   const { t } = useI18n();
   const review = flow.review;
   return (
-    <section className="os-flow" aria-label={t("flow.stages")}>
-      <ol className="os-flow-stages">
+    <section className="osb-flow" aria-label={t("flow.stages")}>
+      <ol className="osb-flow-stages">
         <li data-state={flow.spec ? "available" : "missing"}>
           <b>{t("flow.spec")}</b>
           <span>{t(flow.spec ? "flow.available" : "flow.missing")}</span>
@@ -34,7 +34,7 @@ export function BslFlowProgress({ flow }: { flow: BslFlow }) {
         </li>
       </ol>
       {review !== "passed" && review !== "optional" && (
-        <p className="os-flow-note">{t(`flow.reason.${review}`)}</p>
+        <p className="osb-flow-note">{t(`flow.reason.${review}`)}</p>
       )}
     </section>
   );

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { z } from "zod";
+import { PLUGIN_ID } from "./identity";
 import { storeIdSchema } from "./planning-source";
 
 const schema = z.object({
@@ -8,7 +9,7 @@ const schema = z.object({
   storeId: storeIdSchema.nullable().optional(),
 });
 type PlanningContext = z.infer<typeof schema>;
-const key = "openspec:planning-context";
+const key = `${PLUGIN_ID}:planning-context`;
 let cached: string | null | undefined;
 let snapshot: PlanningContext | undefined;
 function read() {

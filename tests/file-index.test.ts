@@ -5,7 +5,6 @@ import {
   mkdir,
   writeFile,
   rm,
-  symlink,
   utimes,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -17,6 +16,7 @@ import type {
   ExperimentalHostWatchOptions,
 } from "@get-bb/plugin-sdk/host";
 import { OpenSpecIndex } from "../src/file-index.ts";
+import { createFileSymlinkOrSkip } from "./symlink-capability.ts";
 import { WatchPool } from "../src/watch-pool.ts";
 import type { hostSignals } from "../src/host-contract.ts";
 
@@ -75,7 +75,7 @@ test("idle snapshots and updates of one file do not reread unrelated tasks", asy
   }
 });
 
-test("rescan repairs missed changes and confines symlinked task files", async () => {
+test("rescan repairs missed changes", async () => {
   const f = await fixture();
   try {
     const index = new OpenSpecIndex(f.root);
@@ -83,12 +83,21 @@ test("rescan repairs missed changes and confines symlinked task files", async ()
     await f.write("changes/a/tasks.md", "- [x] A");
     await index.update(null);
     assert.equal(index.change("a").change.done, 1);
-    await writeFile(path.join(f.root, "outside.md"), "- [x] Secret");
-    await rm(path.join(f.root, "openspec/changes/a/tasks.md"));
-    await symlink(
-      path.join(f.root, "outside.md"),
-      path.join(f.root, "openspec/changes/a/tasks.md"),
-    );
+  } finally {
+    await f.dispose();
+  }
+});
+
+test("task reads reject file symlinks that escape the OpenSpec root", async (t) => {
+  const f = await fixture();
+  try {
+    const index = new OpenSpecIndex(f.root);
+    await index.initialize();
+    const outside = path.join(f.root, "outside.md");
+    const taskFile = path.join(f.root, "openspec/changes/a/tasks.md");
+    await writeFile(outside, "- [x] Secret");
+    await rm(taskFile);
+    if (!(await createFileSymlinkOrSkip(t, outside, taskFile))) return;
     await index.update([{ path: "changes/a/tasks.md", type: "update" }]);
     assert.match(index.change("a").change.error ?? "", /outside the OpenSpec/);
     assert.equal(index.change("a").change.total, 0);

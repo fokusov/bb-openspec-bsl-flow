@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { sourceSelectionSchema } from "./planning-source";
 import { bslFlowSchema } from "./bsl-flow-model";
+import {
+  managedTaskEnvelopeSchema,
+  managedTaskIdSchema,
+} from "./managed-task-contract";
 
 export const ACTION = {
   EXPLORE: "explore",
@@ -63,8 +67,17 @@ export const threadSchema = z.object({
   providerId: z.string(),
   status: z.string(),
   archived: z.boolean(),
+  managedTaskId: z.string().uuid().nullable().optional(),
+  managedTaskStatus: managedTaskEnvelopeSchema.nullable().optional(),
+  managedTaskError: z.string().nullable().optional(),
 });
 export type LinkedThread = z.infer<typeof threadSchema>;
+export const managedTaskBindingSchema = z.object({
+  taskId: managedTaskIdSchema,
+  environmentId: z.string().min(1),
+  changeId: z.string().min(1).max(250),
+  storeId: sourceSelectionSchema.shape.storeId.unwrap(),
+});
 export const executionSchema = z.object({
   providerId: z.string(),
   model: z.string(),

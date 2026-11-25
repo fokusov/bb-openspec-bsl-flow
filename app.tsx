@@ -54,6 +54,7 @@ import { errorMessage } from "./src/reader-error";
 import { I18nProvider, useI18n } from "./src/i18n-react";
 import { localizedError } from "./src/plugin-error";
 import type { MessageKey } from "./src/i18n";
+import { PLUGIN_ID } from "./src/identity";
 import "./style.css";
 
 type Rpc = ReturnType<typeof useRpc<typeof rpcContract>>;
@@ -70,7 +71,7 @@ function Message({
   const { locale } = useI18n();
   return (
     <div
-      className={`os-message${error ? " os-error" : ""}`}
+      className={`osb-message${error ? " osb-error" : ""}`}
       role={error ? "alert" : "status"}
     >
       {Children.map(children, (child) =>
@@ -141,14 +142,14 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
   const { t, percent: formatPercent } = useI18n();
   const percent = total ? Math.round((done / total) * 100) : 0;
   return (
-    <div className="os-ring" aria-label={t("progressLabel", { done, total })}>
+    <div className="osb-ring" aria-label={t("progressLabel", { done, total })}>
       <svg viewBox="0 0 52 52" fill="none" aria-hidden="true">
-        <circle cx="26" cy="26" r="22" className="os-track" />
+        <circle cx="26" cy="26" r="22" className="osb-track" />
         <circle
           cx="26"
           cy="26"
           r="22"
-          className="os-progress"
+          className="osb-progress"
           strokeDasharray={`${percent * 1.382} 138.2`}
         />
       </svg>
@@ -237,12 +238,12 @@ function LaunchDialog({
         if (!open && !pending) onClose();
       }}
     >
-      <DialogContent className="os-dialog" lang={locale}>
+      <DialogContent className="osb-dialog" lang={locale}>
         <DialogHeader>
           <DialogTitle>{t("newThread")}</DialogTitle>
-          <DialogDescription className="os-mono">{change.id}</DialogDescription>
+          <DialogDescription className="osb-mono">{change.id}</DialogDescription>
         </DialogHeader>
-        <div className="os-modes">
+        <div className="osb-modes">
           {Object.values(ACTION).map((value) => (
             <Button
               key={value}
@@ -269,16 +270,16 @@ function LaunchDialog({
             </Button>
           ))}
         </div>
-        <div className="os-launch-context">
+        <div className="osb-launch-context">
           <span>{source.name || t("projectCheckout")}</span>
-          <span className="os-mono">{source.path}</span>
+          <span className="osb-mono">{source.path}</span>
           {planningSource.storeId && (
-            <span className="os-mono">
+            <span className="osb-mono">
               Store {planningSource.storeId}: {planningSource.rootPath}
             </span>
           )}
         </div>
-        <div className="os-agent-settings">
+        <div className="osb-agent-settings">
           <Button
             variant="outline"
             size="sm"
@@ -293,7 +294,7 @@ function LaunchDialog({
             {custom ? t("customAgentSettings") : t("bbDefaults")}
           </Button>
           {custom && execution && (
-            <div className="os-pickers">
+            <div className="osb-pickers">
               <ProviderModelPicker
                 value={execution}
                 onChange={setExecution}
@@ -310,11 +311,11 @@ function LaunchDialog({
             </div>
           )}
         </div>
-        <label className="os-field" htmlFor="os-prompt">
+        <label className="osb-field" htmlFor="osb-prompt">
           {t("firstMessage")}
         </label>
         <textarea
-          id="os-prompt"
+          id="osb-prompt"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           disabled={pending}
@@ -327,7 +328,7 @@ function LaunchDialog({
             {t("cancel")}
           </Button>
           <Button
-            className="os-primary"
+            className="osb-primary"
             disabled={
               pending || !prompt.trim() || (custom && !execution?.providerId)
             }
@@ -358,6 +359,7 @@ function AttachDialog({
 }) {
   const { t, locale } = useI18n();
   const [threadId, setThreadId] = useState("");
+  const [managedTaskId, setManagedTaskId] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
   const load = useCallback(
@@ -381,6 +383,7 @@ function AttachDialog({
         changeId: change.id,
         storeId: planningSource.storeId,
         threadId,
+        ...(managedTaskId.trim() ? { managedTaskId: managedTaskId.trim() } : {}),
       });
       onAttached();
     } catch (cause) {
@@ -396,7 +399,7 @@ function AttachDialog({
         if (!open && !pending) onClose();
       }}
     >
-      <DialogContent className="os-dialog" lang={locale}>
+      <DialogContent className="osb-dialog" lang={locale}>
         <DialogHeader>
           <DialogTitle>{t("attachThread")}</DialogTitle>
           <DialogDescription>
@@ -412,7 +415,19 @@ function AttachDialog({
             <select
               aria-label={t("thread")}
               value={threadId}
-              onChange={(event) => setThreadId(event.target.value)}
+              onChange={(event) => {
+                const selectedId = event.target.value;
+                setThreadId(selectedId);
+                const selected = choices.data?.find(
+                  (thread) => thread.id === selectedId,
+                );
+                setManagedTaskId(
+                  selected?.changeId === change.id &&
+                    selected.storeId === planningSource.storeId
+                    ? selected.managedTaskId ?? ""
+                    : "",
+                );
+              }}
               disabled={pending}
             >
               <option value="">{t("chooseThread")}</option>
@@ -430,13 +445,30 @@ function AttachDialog({
             <Message>{t("noThreads")}</Message>
           ))}
         {replacing && (
-          <p className="os-link-notice">
+          <p className="osb-link-notice">
             {t("replaceBinding", {
               previous: `${previousChoice?.storeId ? `${previousChoice.storeId}/` : ""}${previousChange}`,
               next: change.id,
             })}
           </p>
         )}
+        <label className="osb-field-label">
+          {t("managedTaskId")}
+          <input
+            type="text"
+            inputMode="text"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="00000000-0000-0000-0000-000000000000"
+            value={managedTaskId}
+            onChange={(event) => setManagedTaskId(event.target.value)}
+            disabled={pending}
+            aria-describedby="managed-task-help"
+          />
+        </label>
+        <p id="managed-task-help" className="osb-link-notice">
+          {t("managedTaskHelp")}
+        </p>
         {error && <Message error>{error}</Message>}
         <DialogFooter>
           <Button variant="outline" disabled={pending} onClick={onClose}>
@@ -475,7 +507,7 @@ function ThreadIndicator({ threads }: { threads: LinkedThread[] }) {
   if (!thread) return null;
   return (
     <span
-      className={`os-thread-indicator${running ? " os-running" : ""}${attention && !running ? " os-thread-error" : ""}`}
+      className={`osb-thread-indicator${running ? " osb-running" : ""}${attention && !running ? " osb-thread-error" : ""}`}
       title={thread.title || t("untitled")}
     >
       <i aria-hidden="true" />
@@ -549,21 +581,21 @@ function ChangeDetail({
           ? t("tasksComplete")
           : `${number(counts.done)} / ${taskCount(counts.total)}`;
   return (
-    <main className="os-main">
-      <div className="os-breadcrumb">changes / {change.id}</div>
-      <div className="os-hero">
+    <main className="osb-main">
+      <div className="osb-breadcrumb">changes / {change.id}</div>
+      <div className="osb-hero">
         <div>
           <h1>{change.title}</h1>
-          <span className="os-state">{state}</span>
+          <span className="osb-state">{state}</span>
         </div>
         {flow
-          ? flow.complexity && <span className="os-flow-chip">{flow.complexity}</span>
+          ? flow.complexity && <span className="osb-flow-chip">{flow.complexity}</span>
           : <ProgressRing done={counts.done} total={counts.total} />}
       </div>
       {flow && <BslFlowProgress flow={flow} />}
-      <div className="os-actions">
+      <div className="osb-actions">
         <Button
-          className="os-primary"
+          className="osb-primary"
           size="sm"
           disabled={change.archived}
           onClick={() => setDialog("launch")}
@@ -581,16 +613,16 @@ function ChangeDetail({
           {t("attachThread")}
         </Button>
       </div>
-      <div className="os-artifacts">
+      <div className="osb-artifacts">
         {change.artifacts.map((artifact) => (
           <button
             key={artifact.kind}
-            className={`os-artifact${artifact.paths.length ? "" : " os-missing"}`}
+            className={`osb-artifact${artifact.paths.length ? "" : " osb-missing"}`}
             disabled={!artifact.paths.length}
             aria-pressed={documentKind?.kind === artifact.kind}
             onClick={() => setDocumentPath(artifact.paths[0])}
           >
-            <span aria-hidden="true" className="os-artifact-icon">
+            <span aria-hidden="true" className="osb-artifact-icon">
               {artifact.paths.length ? "✓" : "○"}
             </span>
             <b>{t(`artifact.${artifact.kind}`)}</b>
@@ -616,7 +648,7 @@ function ChangeDetail({
           {t("flow.report")} ↗
         </Button>
       )}
-      <div className="os-tabs" role="tablist" aria-label={t("changeContents")}>
+      <div className="osb-tabs" role="tablist" aria-label={t("changeContents")}>
         {!flow && <button
           role="tab"
           aria-selected={!documentPath && view === VIEW.TASKS}
@@ -641,7 +673,7 @@ function ChangeDetail({
           {t("threads")} <em>{number(detail.data?.threads.length ?? 0)}</em>
         </button>
         {documentKind && (
-          <span className="os-doc-label">
+          <span className="osb-doc-label">
             {t(`artifact.${documentKind.kind}`)}
           </span>
         )}
@@ -650,7 +682,7 @@ function ChangeDetail({
             variant="ghost"
             size="icon"
             aria-label={t("refreshChange")}
-            className="os-refresh"
+            className="osb-refresh"
             onClick={() => {
               detail.refresh();
               documentQuery.refresh();
@@ -671,7 +703,7 @@ function ChangeDetail({
         </Message>
       )}
       {documentPath ? (
-        <section className="os-document">
+        <section className="osb-document">
           {documentKind?.kind === "specs" && !flow && (
             <select
               aria-label={t("specification")}
@@ -685,8 +717,8 @@ function ChangeDetail({
               ))}
             </select>
           )}
-          <div className="os-document-heading">
-            <span className="os-mono">{documentPath}</span>
+          <div className="osb-document-heading">
+            <span className="osb-mono">{documentPath}</span>
             <Button
               variant="ghost"
               size="sm"
@@ -713,7 +745,7 @@ function ChangeDetail({
             <Message>{t("loadingDocument")}</Message>
           )}
           {documentQuery.data && (documentPath.endsWith(".json")
-            ? <pre className="os-flow-json">{documentQuery.data.content}</pre>
+            ? <pre className="osb-flow-json">{documentQuery.data.content}</pre>
             : <Markdown content={documentQuery.data.content} />)}
         </section>
       ) : (
@@ -723,9 +755,9 @@ function ChangeDetail({
             !flow && view === VIEW.TASKS &&
             (detail.data.groups.length ? (
               detail.data.groups.map((group, index) => (
-                <section key={`${index}-${group.title}`} className="os-group">
+                <section key={`${index}-${group.title}`} className="osb-group">
                   <h2>
-                    <span className="os-index">
+                    <span className="osb-index">
                       {String(index + 1).padStart(2, "0")}
                     </span>
                     {group.title
@@ -740,10 +772,10 @@ function ChangeDetail({
                     {group.tasks.map((task, taskIndex) => (
                       <li
                         key={taskIndex}
-                        className={`os-task${task.done ? " os-done" : ""}`}
+                        className={`osb-task${task.done ? " osb-done" : ""}`}
                       >
                         <span
-                          className="os-task-status"
+                          className="osb-task-status"
                           role="img"
                           aria-label={
                             task.done ? t("completed") : t("notCompleted")
@@ -780,10 +812,10 @@ function ChangeDetail({
               detail.data.threads.map((thread) => (
                 <button
                   key={thread.id}
-                  className="os-thread"
+                  className="osb-thread"
                   onClick={() => navigate.toThread(thread.id)}
                 >
-                  <span className="os-avatar">↗</span>
+                  <span className="osb-avatar">↗</span>
                   <span>
                     <strong>{thread.title || t("untitled")}</strong>
                     <small>
@@ -793,8 +825,39 @@ function ChangeDetail({
                         : thread.status}
                       {thread.archived ? t("archiveSuffix") : ""}
                     </small>
+                    {thread.managedTaskId &&
+                      (thread.managedTaskStatus ? (
+                        <>
+                          <small>
+                            {t("managedTaskSummary", {
+                              id: thread.managedTaskId,
+                              status: thread.managedTaskStatus.status,
+                              stage:
+                                thread.managedTaskStatus.stage ??
+                                t("managedTaskNoStage"),
+                              nextAction: thread.managedTaskStatus.next_action,
+                            })}
+                          </small>
+                          {!!thread.managedTaskStatus.blockers.length && (
+                            <small>
+                              {t("managedTaskBlockers", {
+                                blockers:
+                                  thread.managedTaskStatus.blockers.join(" · "),
+                              })}
+                            </small>
+                          )}
+                        </>
+                      ) : (
+                        <small className="osb-managed-task-error">
+                          {t("managedTaskUnavailable", {
+                            reason:
+                              thread.managedTaskError ??
+                              t("managedTaskUnknownError"),
+                          })}
+                        </small>
+                      ))}
                   </span>
-                  <span className="os-thread-arrow">↗</span>
+                  <span className="osb-thread-arrow">↗</span>
                 </button>
               ))
             ) : (
@@ -875,7 +938,7 @@ function OpenSpecPage({
   const [editingSource, setEditingSource] = useState(false);
   const [compact, setCompact] = useState(() => {
     try {
-      return localStorage.getItem("openspec:compact") === "true";
+      return localStorage.getItem(`${PLUGIN_ID}:compact`) === "true";
     } catch {
       return false;
     }
@@ -883,7 +946,7 @@ function OpenSpecPage({
   const [compactDetail, setCompactDetail] = useState(false);
   useEffect(() => {
     try {
-      localStorage.setItem("openspec:compact", String(compact));
+      localStorage.setItem(`${PLUGIN_ID}:compact`, String(compact));
     } catch {}
   }, [compact]);
   const sources = liveQueryView(
@@ -1011,9 +1074,9 @@ function OpenSpecPage({
     : projectName;
   return (
     <TooltipProvider delayDuration={350}>
-      <div className="os-root" lang={locale}>
+      <div className="osb-root" lang={locale}>
         <header
-          className={`os-top${specifications ? " os-spec-top" : ""}`}
+          className={`osb-top${specifications ? " osb-spec-top" : ""}`}
           onKeyDown={(event) => {
             if (event.key === "Escape") setEditingSource(false);
           }}
@@ -1024,17 +1087,17 @@ function OpenSpecPage({
             <Button
               variant="ghost"
               size="sm"
-              className="os-source-summary"
+              className="osb-source-summary"
               aria-label={t("projectEnvironment", { source: sourceLabel })}
               aria-expanded={editingSource}
               onClick={() => setEditingSource((value) => !value)}
             >
-              <span className="os-source-name">{projectName}</span>
+              <span className="osb-source-name">{projectName}</span>
               {displayedStoreId ? (
-                <span className="os-source-store">· {displayedStoreId}</span>
+                <span className="osb-source-store">· {displayedStoreId}</span>
               ) : (
                 source && (
-                  <span className="os-source-environment">
+                  <span className="osb-source-environment">
                     · {source.name || t("projectCheckout")}
                   </span>
                 )
@@ -1047,7 +1110,7 @@ function OpenSpecPage({
                 stroke="currentColor"
                 strokeWidth="1.7"
                 aria-hidden="true"
-                className={editingSource ? "os-chevron-open" : ""}
+                className={editingSource ? "osb-chevron-open" : ""}
               >
                 <path d="m6 9 6 6 6-6" />
               </svg>
@@ -1060,7 +1123,7 @@ function OpenSpecPage({
               size="icon"
               aria-label={compact ? t("showDetails") : t("showCards")}
               aria-pressed={compact}
-              className="os-view-toggle"
+              className="osb-view-toggle"
               onClick={() => {
                 setCompact((value) => !value);
                 setCompactDetail(false);
@@ -1075,7 +1138,7 @@ function OpenSpecPage({
               variant="ghost"
               size="icon"
               aria-label={t("refreshOpenSpec")}
-              className="os-reload"
+              className="osb-reload"
               onClick={() => {
                 sources.refresh();
                 refreshFiles();
@@ -1085,7 +1148,7 @@ function OpenSpecPage({
             </Button>
           </Hint>
           {editingSource && (
-            <div className="os-source-pickers">
+            <div className="osb-source-pickers">
               <select
                 aria-label={t("project")}
                 value={
@@ -1134,7 +1197,7 @@ function OpenSpecPage({
                 ))}
               </select>
               <select
-                className="os-planning-picker"
+                className="osb-planning-picker"
                 aria-label={t("planningSource")}
                 value={
                   selectedStoreId === undefined
@@ -1202,10 +1265,10 @@ function OpenSpecPage({
         />}
         {source && !specifications && (
           <div
-            className={`os-layout${compact ? " os-compact" : ""}${compact && compactDetail ? " os-compact-detail" : ""}`}
+            className={`osb-layout${compact ? " osb-compact" : ""}${compact && compactDetail ? " osb-compact-detail" : ""}`}
           >
-            <aside className="os-sidebar">
-              <div className="os-nav">
+            <aside className="osb-sidebar">
+              <div className="osb-nav">
                 <button
                   aria-pressed={!effectiveArchived}
                   onClick={() => {
@@ -1231,17 +1294,17 @@ function OpenSpecPage({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
               />
-              <div className="os-section-name">{t("changes")}</div>
+              <div className="osb-section-name">{t("changes")}</div>
               {compact && changes.error && (
                 <Message error>{changes.error}</Message>
               )}
               {compact && !changes.data && !changes.error && (
                 <Message>{t("loadingChanges")}</Message>
               )}
-              <div className="os-changes">
+              <div className="osb-changes">
                 {matching.map((change) => (
                   <button
-                    className={`os-change${change.total > 0 && change.done === change.total && !change.error ? " os-completed" : ""}`}
+                    className={`osb-change${change.total > 0 && change.done === change.total && !change.error ? " osb-completed" : ""}`}
                     key={change.id}
                     aria-pressed={selected?.id === change.id}
                     onClick={() => {
@@ -1251,9 +1314,9 @@ function OpenSpecPage({
                   >
                     <strong>{change.title}</strong>
                     <small>{change.id}</small>
-                    {change.bslFlow ? <BslFlowReviewStatus flow={change.bslFlow} /> : <div className="os-change-foot">
+                    {change.bslFlow ? <BslFlowReviewStatus flow={change.bslFlow} /> : <div className="osb-change-foot">
                       <span
-                        className="os-task-progress"
+                        className="osb-task-progress"
                         title={taskCount(change.total)}
                         role="progressbar"
                         aria-label={t("taskProgress")}
@@ -1275,11 +1338,11 @@ function OpenSpecPage({
                             : t("noTasks")}
                       </span>
                     </div>}
-                    <div className="os-change-meta">
+                    <div className="osb-change-meta">
                       {change.total > 0 &&
                         change.done === change.total &&
                         !change.error && (
-                          <span className="os-completion">
+                          <span className="osb-completion">
                             ✓ {t("completed")}
                           </span>
                         )}
@@ -1294,12 +1357,12 @@ function OpenSpecPage({
                 </Message>
               )}
             </aside>
-            <div className="os-detail">
+            <div className="osb-detail">
               {compact && compactDetail && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="os-back"
+                  className="osb-back"
                   onClick={() => setCompactDetail(false)}
                 >
                   {t("allChanges")}
@@ -1371,17 +1434,17 @@ export default definePluginApp((app) => {
   app.experimental_icons.register({ name: "openspec.book", component: ({ className }) => <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v16M12 5C9 2.5 5 2.5 2 4v15c3-1.5 7-1.5 10 1 3-2.5 7-2.5 10-1V4c-3-1.5-7-1.5-10 1Z"/><path d="M5 7h3M5 11h3M16 7h3M16 11h3"/></svg> });
   app.slots.navPanel({
     id: "openspec",
-    title: "OpenSpec · Changes",
+    title: "OpenSpec BSL Flow · Changes",
     icon: "ListTodo",
     path: "openspec",
     component: NavigationPage,
   });
-  app.slots.navPanel({ id: "specifications", title: "OpenSpec · Specs", icon: "openspec.book", path: "specifications", component: SpecificationsPage });
+  app.slots.navPanel({ id: "specifications", title: "OpenSpec BSL Flow · Specs", icon: "openspec.book", path: "specifications", component: SpecificationsPage });
   app.slots.experimental_tab({
     context: { kind: "thread" },
     availability: "action",
     id: "change",
-    title: "OpenSpec · Changes",
+    title: "OpenSpec BSL Flow · Changes",
     icon: "ListTodo",
     component: ThreadPanel,
     layout: "flush",
@@ -1390,7 +1453,7 @@ export default definePluginApp((app) => {
     context: { kind: "thread" },
     availability: "action",
     id: "specifications",
-    title: "OpenSpec · Specs",
+    title: "OpenSpec BSL Flow · Specs",
     icon: "openspec.book",
     component: ThreadSpecificationsPanel,
     layout: "flush",

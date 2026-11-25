@@ -1,14 +1,14 @@
 {
-  "name": "bb-plugin-openspec",
-  "version": "0.6.1",
+  "name": "bb-plugin-openspec-bsl-flow",
+  "version": "0.6.2",
   "type": "module",
   "engines": {
     "bb": ">=0.47",
     "bbPluginSdk": ">=0.6.79"
   },
   "bb": {
-    "name": "OpenSpec",
-    "description": "Browse OpenSpec changes and specifications, track task progress, and launch linked agents.",
+    "name": "OpenSpec BSL Flow",
+    "description": "Browse OpenSpec changes and specifications, inspect BSL Flow evidence, and link agent threads.",
     "branding": {
       "icon": "ListTodo"
     },
@@ -64,7 +64,7 @@
     "check": "npm run typecheck && npm test && npm run build",
     "test:specifications": "tsx scripts/verify-specifications.ts"
   },
-  "description": "Browse OpenSpec changes and specifications, track task progress, and launch linked agents.",
+  "description": "Browse OpenSpec changes and specifications, inspect BSL Flow evidence, and link agent threads.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -75,12 +75,19 @@
     "url": "https://github.com/fokusov/bb-openspec-bsl-flow/issues"
   },
   "author": {
-    "name": "Aleksander Khanteev",
-    "url": "https://github.com/khaale"
+    "name": "fokusov",
+    "url": "https://github.com/fokusov"
   },
+  "contributors": [
+    {
+      "name": "Aleksander Khanteev",
+      "url": "https://github.com/khaale"
+    }
+  ],
   "keywords": [
     "bb-plugin",
     "openspec",
+    "bsl-flow",
     "specifications",
     "tasks",
     "agents"

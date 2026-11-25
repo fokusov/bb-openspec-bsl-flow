@@ -1,24 +1,12 @@
-# Move an installed OpenSpec plugin to the BSL Flow fork
+# Move to OpenSpec BSL Flow
 
-The original plugin and the fork use the same `openspec` ID. BB 0.50.1 refuses to install a different source while that ID is installed. A separate profile is the simplest way to evaluate both releases.
+Version 0.6.2 registers as `openspec-bsl-flow`. BB stores plugin settings and thread metadata by plugin ID. Each plugin has its own language and thread links.
 
-## Prepare an in-place migration
+1. Check the old plugin with `bb plugin source openspec --json`. Record its language with `bb plugin config openspec --json`. For each active thread link to carry forward, record its environment, planning store, change, thread and optional Managed task UUID.
+2. Install the fork from its checkout with `bb plugin install .`. For distribution, use the fork's verified Git release once it is published.
+3. Restore the language with `bb plugin config openspec-bsl-flow set language <auto|en|ru>`.
+4. Open **OpenSpec BSL Flow · Changes**. Select the recorded environment and planning source, then use **Link thread** on the corresponding change. Enter the recorded Managed task UUID if present. Verify the links before retiring the old installation. Reopen any saved side-panel tabs under the new plugin.
 
-1. Record the upstream source and language with `bb plugin source openspec --json` and `bb plugin config openspec --json`.
-2. In OpenSpec · Changes, record the active threads listed for each change that you need to carry forward. Include the project, environment, planning source, change ID and thread. Check each planning source separately.
-3. Keep an independent backup of the BB profile if it contains historical or archived link metadata that you must retain. Standard OpenSpec artifacts are stored in the project or its planning store.
+The old links stay in the `openspec` namespace. Archived changes are read-only. Keep a profile backup if you need to retain historical plugin state. Project and store artifacts remain in their existing directories.
 
-Confirm that the record includes the environments and planning sources you intend to migrate before removing the original installation.
-
-## Switch the source
-
-```sh
-bb plugin remove openspec
-bb plugin install 'git:https://github.com/fokusov/bb-openspec-bsl-flow.git@v0.6.0'
-```
-
-Restore the recorded language with `bb plugin config openspec set language <auto|en|ru>`. Open the recorded changes and compare the active links. For a missing link, select the recorded environment and planning source in OpenSpec · Changes. Open the recorded change, choose **Link thread**, then select the existing thread from that environment. Linking replaces any other binding for that thread. Archived changes are read-only in the plugin.
-
-## Roll back
-
-Save the current active bindings and language using the same procedure. Remove the fork, install the original recorded source and restore the language and any missing active bindings. A profile backup is required to restore historical data that falls outside the public attachment workflow.
+To keep the original plugin alongside the fork, retain the upstream installation under `openspec`. If that ID is currently occupied by an earlier version of the fork, save its active links and settings before replacing it with the upstream source.

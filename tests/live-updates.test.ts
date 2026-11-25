@@ -5,7 +5,7 @@ import { createFakePluginHost } from "@get-bb/plugin-sdk/testing";
 import { createHostClient, registerLiveUpdates } from "../src/live-updates.ts";
 
 test("live producer scopes file invalidation, reconciles on restart and releases its own subscription", async () => {
-  const { bb, harness } = createFakePluginHost({ pluginId: "openspec" });
+  const { bb, harness } = createFakePluginHost({ pluginId: "openspec-bsl-flow" });
   harness.sdk.stub("subscribe", () => () => {});
   harness.sdk.stub("environments.get", async () => ({
     id: "env",
@@ -73,9 +73,9 @@ test("live producer scopes file invalidation, reconciles on restart and releases
     assert.deepEqual(
       new Set(invalidations.flat()),
       new Set([
-        "openspec:document:env:changes/example/tasks.md",
-        "openspec:changes:env",
-        "openspec:detail:env:example",
+        "openspec-bsl-flow:document:env:changes/example/tasks.md",
+        "openspec-bsl-flow:changes:env",
+        "openspec-bsl-flow:detail:env:example",
       ]),
     );
     invalidations.length = 0;
@@ -92,8 +92,8 @@ test("live producer scopes file invalidation, reconciles on restart and releases
     assert.deepEqual(
       new Set(invalidations.flat()),
       new Set([
-        "openspec:document:env:changes/example/design.md",
-        "openspec:changes:env",
+        "openspec-bsl-flow:document:env:changes/example/design.md",
+        "openspec-bsl-flow:changes:env",
       ]),
     );
     invalidations.length = 0;
@@ -107,12 +107,12 @@ test("live producer scopes file invalidation, reconciles on restart and releases
         error: null,
       },
     });
-    assert.deepEqual(invalidations, [["openspec:environment:env"]]);
+    assert.deepEqual(invalidations, [["openspec-bsl-flow:environment:env"]]);
     invalidations.length = 0;
     await changed({ hostId: "host", payload: { environmentId: "env", paths: ["specs/core/localization/spec.md"], structural: false, rescan: false, error: null } });
     assert.deepEqual(new Set(invalidations.flat()), new Set([
-      "openspec:document:env:specs/core/localization/spec.md",
-      "openspec:specifications:env", "openspec:specification:env:core/localization",
+      "openspec-bsl-flow:document:env:specs/core/localization/spec.md",
+      "openspec-bsl-flow:specifications:env", "openspec-bsl-flow:specification:env:core/localization",
     ]));
     first.abort();
     await running1;

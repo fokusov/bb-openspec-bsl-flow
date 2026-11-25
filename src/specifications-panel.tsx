@@ -48,7 +48,7 @@ export function SpecificationsPanel({ environmentId, hostId, source, catalog, er
     setSelected(item.id); setChange(undefined); setMode(undefined); setReading(true);
     if (navigateSelection) navigate.toPluginPanel("specifications", { subPath: `${environmentId}/${item.id}`, replace: true });
   }
-  function message(content: ReactNode, isError = false) { return <div className={`os-message${isError ? " os-error" : ""}`} role={isError ? "alert" : "status"}>{content}</div>; }
+  function message(content: ReactNode, isError = false) { return <div className={`osb-message${isError ? " osb-error" : ""}`} role={isError ? "alert" : "status"}>{content}</div>; }
   function leaf(item: SpecificationEntry, own = false) {
     const status = !item.changes.length ? "current" : item.changes.some(change => change.status === "unknown" || change.error) ? "unresolved" : item.mainPath ? "modified" : item.changes.every(change => change.status === "added") ? "added" : "unresolved";
     const statusText = t(`spec.${status}`);
@@ -100,7 +100,7 @@ export function SpecificationsPanel({ environmentId, hostId, source, catalog, er
         </div>
         {document.error && message(localizedError(document.error.message, locale), true)}
         {!doc && !document.error && message(t("loadingDocument"))}
-        {doc?.readErrors.map(item => <div key={item.path} className="os-message os-error" role="alert"><span className="sp-path">{item.path}</span><br />{localizedError(item.message, locale)}</div>)}
+        {doc?.readErrors.map(item => <div key={item.path} className="osb-message osb-error" role="alert"><span className="sp-path">{item.path}</span><br />{localizedError(item.message, locale)}</div>)}
         {doc && <section className="sp-markdown">
           {activeMode === "current" ? doc.main ? <Markdown content={withoutTitle(doc.main.content)} /> : message(t("spec.noCurrent"))
             : !doc.delta ? doc.main ? <Markdown content={withoutTitle(doc.main.content)} /> : message(t("spec.noCurrent"))

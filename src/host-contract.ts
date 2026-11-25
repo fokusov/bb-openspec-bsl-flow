@@ -6,6 +6,10 @@ import {
 import { z } from "zod";
 import { changeSchema, groupSchema } from "./model";
 import {
+  managedTaskEnvelopeSchema,
+  managedTaskIdSchema,
+} from "./managed-task-contract";
+import {
   sourceSelectionSchema,
   planningSourceSchema,
   planningCatalogSchema,
@@ -29,6 +33,13 @@ export const hostContract = defineRpcContract({
   change: {
     input: indexSourceSchema.extend({ changeId: z.string() }),
     output: z.object({ change: changeSchema, groups: z.array(groupSchema) }),
+  },
+  managedTaskStatus: {
+    input: z.object({
+      workspacePath: z.string().min(1),
+      taskId: managedTaskIdSchema,
+    }),
+    output: managedTaskEnvelopeSchema,
   },
   watch: {
     input: sourceSchema.extend({

@@ -80,6 +80,13 @@ export const ru = {
   createAndLaunch: "Создать и запустить",
   loadingThreads: "Загрузка тредов…",
   chooseThread: "Выберите тред",
+  managedTaskId: "ID Managed-задачи BSL Flow (необязательно)",
+  managedTaskHelp: "Укажи точный UUID задачи, чтобы связать её с этим change, источником планирования и окружением проекта. OpenSpec сохранит только привязку и не будет читать статус контроллера.",
+  managedTaskSummary: "Managed-задача {id}: {status} · {stage} · дальше: {nextAction}",
+  managedTaskNoStage: "этап не зарегистрирован",
+  managedTaskBlockers: "Блокеры: {blockers}",
+  managedTaskUnavailable: "Статус Managed-задачи недоступен: {reason}",
+  managedTaskUnknownError: "Ошибка контроллера",
   thread: "Тред",
   noThreads: "В этом окружении пока нет тредов.",
   replaceBinding:

@@ -1,10 +1,11 @@
 import { LANGUAGE_OPTIONS, LANGUAGE_OPTION_LABELS } from "./src/messages";
 import { pluginError } from "./src/plugin-error";
+import { errorMessage } from "./src/reader-error";
 import path from "node:path";
 import type { BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
 import { rpcContract } from "./src/contract";
-import { ACTION, ACTION_LABEL, type LinkedThread } from "./src/model";
+import { ACTION, ACTION_LABEL, managedTaskBindingSchema, type LinkedThread } from "./src/model";
 import { changeRelative } from "./src/change-paths";
 import { projectTestReport, readDocument, workspace } from "./src/reader";
 import { createHostClient, registerLiveUpdates } from "./src/live-updates";
@@ -89,12 +90,25 @@ export default function plugin(bb: BbPluginApi) {
         })
       : { threads: [] };
     return threads.map((thread) => {
-      const binding = bindingSchema.safeParse(
-        result.threads.find((row) => row.threadId === thread.id)?.metadata,
+      const metadata = result.threads.find((row) => row.threadId === thread.id)?.metadata;
+      const binding = bindingSchema.safeParse(metadata);
+      const managedTask = managedTaskBindingSchema.safeParse(
+        metadata && typeof metadata === "object"
+          ? (metadata as Record<string, unknown>).managedTask
+          : undefined,
       );
       return {
         ...thread,
         storeId: binding.success ? binding.data.storeId : null,
+        managedTaskId:
+          binding.success &&
+          managedTask.success &&
+          managedTask.data.environmentId === environmentId &&
+          managedTask.data.environmentId === binding.data.environmentId &&
+          managedTask.data.changeId === binding.data.changeId &&
+          managedTask.data.storeId === binding.data.storeId
+            ? managedTask.data.taskId
+            : null,
         changeId:
           binding.success && binding.data.environmentId === environmentId
             ? binding.data.changeId
@@ -234,7 +248,26 @@ export default function plugin(bb: BbPluginApi) {
         linkedThreads(environmentId, changeId, selected.storeId),
         bslFlow ? projectTestReport(sdk, source) : undefined,
       ]);
-      return { groups, threads, ...(report ? { projectTestReport: report } : {}) };
+      const managedThreads = await Promise.all(
+        threads.map(async (thread) => {
+          if (!thread.managedTaskId) return thread;
+          try {
+            const managedTaskStatus = await host.call(
+              "managedTaskStatus",
+              { workspacePath: source.path, taskId: thread.managedTaskId },
+              { hostId: source.hostId },
+            );
+            return { ...thread, managedTaskStatus, managedTaskError: null };
+          } catch (cause) {
+            return {
+              ...thread,
+              managedTaskStatus: null,
+              managedTaskError: errorMessage(cause),
+            };
+          }
+        }),
+      );
+      return { groups, threads: managedThreads, ...(report ? { projectTestReport: report } : {}) };
     },
     document: async ({
       environmentId,
@@ -299,7 +332,7 @@ export default function plugin(bb: BbPluginApi) {
       return { threadId: thread.id };
     },
     threadChoices: ({ environmentId }) => boundThreads(environmentId),
-    attach: async ({ environmentId, changeId, storeId, threadId }) => {
+    attach: async ({ environmentId, changeId, storeId, threadId, managedTaskId }) => {
       const { selected } = await target(environmentId, changeId, storeId);
       if (changeId.startsWith("archive/"))
         throw pluginError("error.archivedReadOnly");
@@ -309,7 +342,22 @@ export default function plugin(bb: BbPluginApi) {
       if (thread.deletedAt !== null) throw pluginError("error.threadDeleted");
       await sdk.threads.updatePluginMetadata({
         threadId,
-        set: { environmentId, changeId, storeId: selected.storeId },
+        set: {
+          environmentId,
+          changeId,
+          storeId: selected.storeId,
+          ...(managedTaskId
+            ? {
+                managedTask: {
+                  taskId: managedTaskId,
+                  environmentId,
+                  changeId,
+                  storeId: selected.storeId,
+                },
+              }
+            : {}),
+        },
+        ...(!managedTaskId ? { remove: ["managedTask"] } : {}),
       });
       bb.rpc.experimental_invalidate([
         liveTags.threads(environmentId),

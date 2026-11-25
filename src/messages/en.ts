@@ -78,6 +78,13 @@ export const en = {
   createAndLaunch: "Create and launch",
   loadingThreads: "Loading threads…",
   chooseThread: "Choose a thread",
+  managedTaskId: "Managed BSL Flow task ID (optional)",
+  managedTaskHelp: "Enter the exact task UUID to bind it to this change, planning source, and project environment. OpenSpec will store the link only; it will not read controller status.",
+  managedTaskSummary: "Managed task {id}: {status} · {stage} · next: {nextAction}",
+  managedTaskNoStage: "stage not registered",
+  managedTaskBlockers: "Blockers: {blockers}",
+  managedTaskUnavailable: "Managed status unavailable: {reason}",
+  managedTaskUnknownError: "Controller error",
   thread: "Thread",
   noThreads: "No threads in this environment yet.",
   replaceBinding:

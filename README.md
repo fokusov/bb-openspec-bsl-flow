@@ -1,4 +1,4 @@
-# OpenSpec for bb
+# OpenSpec BSL Flow for BB
 
 English · [Русский](README.ru.md)
 
@@ -8,20 +8,16 @@ Track OpenSpec changes and task progress in [bb](https://getbb.app/), read speci
 
 This MIT-licensed fork of [khaale/bb-openspec](https://github.com/khaale/bb-openspec) adds an evidence-based BSL Flow view. The first release is based on upstream commit `2798fd7`.
 
-```sh
-bb plugin install 'git:https://github.com/fokusov/bb-openspec-bsl-flow.git@v0.6.0'
-```
+Starting with 0.6.2, the fork uses the `openspec-bsl-flow` plugin ID and can run alongside the original `openspec`. Earlier releases use `openspec`. See [migration](docs/MIGRATING-TO-BSL-FLOW.md) to carry over the language setting and active thread links.
 
-The fork uses the existing `openspec` plugin ID. To evaluate both repositories independently, use separate BB profiles.
-
-Open **OpenSpec · Changes** in navigation or beside a thread. Changes with the effective schema `bsl-flow` show the working copy, specification, review gate and available evidence. A successful review requires a supported final-validation receipt bound to current files. The test report link is labelled as project-level context. Implementation and verification show unconfirmed until change-level evidence can be linked.
+Open **OpenSpec BSL Flow · Changes** in navigation or beside a thread. Changes with the effective schema `bsl-flow` show the working copy, specification, review gate and available evidence. A successful review requires a supported final-validation receipt bound to current files. The test report link is labelled as project-level context. Implementation and verification show unconfirmed until change-level evidence can be linked.
 
 Use Refresh after a project policy or test report changes outside the OpenSpec directory.
 
 ## Features
 
 - Active and archived changes, search, project and environment selection.
-- A separate **OpenSpec · Specs** panel: a searchable namespace tree combining main specs and active change deltas, including capabilities before their first archive.
+- A separate **OpenSpec BSL Flow · Specs** panel: a searchable namespace tree combining main specs and active change deltas, including capabilities before their first archive.
 - Read complete specifications in **Current / Proposed / Compare**, with Git-style status colors, explicit change selection and visible unresolved operations.
 - Markdown previews for proposals, specifications, designs and tasks, with access to the source files in bb.
 - Read-only `✓` / `○` checklists and progress from `tasks.md`; agents update the files.
@@ -37,11 +33,11 @@ Use Refresh after a project policy or test report changes outside the OpenSpec d
 
 | Changes · task progress | Specs · specification tree |
 | --- | --- |
-| ![OpenSpec Changes with archived task groups and completion status](marketplace/screenshots/openspec/changes.jpg) | ![OpenSpec Specs with the recursive tree and a complete specification](marketplace/screenshots/openspec/specifications.jpg) |
+| ![OpenSpec Changes with archived task groups and completion status](marketplace/screenshots/openspec-bsl-flow/changes.jpg) | ![OpenSpec Specs with the recursive tree and a complete specification](marketplace/screenshots/openspec-bsl-flow/specifications.jpg) |
 
 Changes and Specs open together in bb:
 
-![Changes and Specs in stacked panels](marketplace/screenshots/openspec/changes-and-specs.jpg)
+![Changes and Specs in stacked panels](marketplace/screenshots/openspec-bsl-flow/changes-and-specs.jpg)
 
 ## Requirements
 
@@ -60,19 +56,18 @@ npm run build
 bb plugin install .
 ```
 
-Open **OpenSpec · Changes** or **OpenSpec · Specs** in bb navigation. To keep either view beside a conversation, open the thread's right panel, click **+**, and choose **OpenSpec · Changes** or **OpenSpec · Specs** under **Actions**. bb remembers opened tabs separately for each thread. Click the project name in the header to select its environment and planning source. Use the view icon to switch between compact cards and details.
+Open **OpenSpec BSL Flow · Changes** or **OpenSpec BSL Flow · Specs** in bb navigation. To keep either view beside a conversation, open the thread's right panel, click **+**, and choose **OpenSpec BSL Flow · Changes** or **OpenSpec BSL Flow · Specs** under **Actions**. bb remembers opened tabs separately for each thread. Click the project name in the header to select its environment and planning source. Use the view icon to switch between compact cards and details.
 
-Install the current main branch from Git:
+Install the fork with its own plugin ID from Git:
 
 ```sh
-bb plugin install 'git:https://github.com/fokusov/bb-openspec-bsl-flow.git@main'
+bb plugin install 'git:https://github.com/fokusov/bb-openspec-bsl-flow.git@v0.6.2'
 ```
 
-See [the tagged BSL Flow edition](#bsl-flow-edition) for the install command for a fixed release.
 
 ## Specifications
 
-**OpenSpec · Specs** shows `openspec/specs/**/spec.md` together with specifications introduced or modified by active changes. Folders follow full relative paths; a parent may have its own `spec.md` and children. Archived deltas are excluded from pending work.
+**OpenSpec BSL Flow · Specs** shows `openspec/specs/**/spec.md` together with specifications introduced or modified by active changes. Folders follow full relative paths; a parent may have its own `spec.md` and children. Archived deltas are excluded from pending work.
 
 Select a specification to read the complete document. **Current** reads the main spec; **Proposed** applies one identified change; **Compare** shows before/after requirement blocks, including removals and renames. Choose a change when several affect the same capability. A new capability opens Proposed with Current unavailable. Green **A** indicates an addition, amber **M** a modification. Unsupported or conflicting operations expose readable sources and diagnostics instead of a partial proposed result. Projection is a read-only preview; it does not perform CLI validation, sync or archive.
 
@@ -82,7 +77,7 @@ In narrow panels, select a tree entry to read it and use the back button to retu
 
 **Launch agent** starts a visible thread in the selected code environment and links it to the change. It uses the existing checkout. **Link thread** assigns a thread from that environment without starting it or sending a message. A thread has one current binding; a change can have several threads. Bindings persist in bb plugin metadata and include the planning source.
 
-Manager agents can call `launch`, `attach`, `changes` and `threadChoices` using `bb plugin rpc call`. See the [plugin instructions](skills/openspec-work/SKILL.md) for request formats.
+Manager agents can call `launch`, `attach`, `changes` and `threadChoices` using `bb plugin rpc call`. See the [plugin instructions](skills/openspec-bsl-flow-work/SKILL.md) for request formats.
 
 Task checkboxes are read-only. “Completed” means every task in `tasks.md` is checked; validation and archiving are separate operations.
 
@@ -91,9 +86,9 @@ Task checkboxes are read-only. “Completed” means every task in `tasks.md` is
 In the plugin settings, **Language** offers **Automatic**, **English** and **Russian**. Automatic uses supported languages from the current browser's preferences, with English as fallback. A manual selection applies to all open plugin panels without reload.
 
 ```sh
-bb plugin config openspec set language ru
-bb plugin config openspec set language en
-bb plugin config openspec set language auto
+bb plugin config openspec-bsl-flow set language ru
+bb plugin config openspec-bsl-flow set language en
+bb plugin config openspec-bsl-flow set language auto
 ```
 
 UI labels, tooltips, counters and the plugin's own errors are translated. OpenSpec content, names and external tool errors retain their original text. Native bb controls follow bb's own language behavior. Settings labels are English.
@@ -135,7 +130,7 @@ npm run test:stores # requires OpenSpec CLI; uses isolated temporary stores
 
 `bb-app` is pinned as a development dependency for CI and builds without a running bb server. CI runs checks and the production dependency build; it has no release or publishing steps. Store CLI integration is a separate local check.
 
-For live development, run `bb plugin dev`. After a one-off build, use `bb plugin reload openspec` to reload an installed local plugin.
+For live development, run `bb plugin dev`. After a one-off build, use `bb plugin reload openspec-bsl-flow` to reload an installed local plugin.
 
 | Files | Purpose |
 | --- | --- |

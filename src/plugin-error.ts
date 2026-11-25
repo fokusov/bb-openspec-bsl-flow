@@ -6,6 +6,9 @@ import {
 } from "./i18n";
 import { errorMessage } from "./reader-error";
 import { en } from "./messages/en";
+import { PLUGIN_ID } from "./identity";
+
+const markerPattern = new RegExp(`\\[${PLUGIN_ID}:([^\\]]+)\\]`);
 
 type ErrorKey = Extract<MessageKey, `error.${string}`>;
 /** Carry a stable translation key through SDK errors and cached host strings. */
@@ -16,13 +19,13 @@ export function pluginError(
 ): Error {
   const marker = encodeURIComponent(JSON.stringify({ key, params }));
   return new Error(
-    `${createI18n("en").t(key, params)} [openspec:${marker}]`,
+    `${createI18n("en").t(key, params)} [${PLUGIN_ID}:${marker}]`,
     options,
   );
 }
 export function localizedError(cause: unknown, locale: Locale): string {
   const message = errorMessage(cause);
-  const match = /\[openspec:([^\]]+)\]/.exec(message);
+  const match = markerPattern.exec(message);
   if (!match) return message;
   try {
     const decoded: unknown = JSON.parse(decodeURIComponent(match[1]));

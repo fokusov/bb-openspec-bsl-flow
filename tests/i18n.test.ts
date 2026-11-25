@@ -57,8 +57,8 @@ test("cached own errors translate on display while external errors stay unchange
     "Machine offline",
   );
   assert.equal(
-    localizedError("bad [openspec:invalid]", "en"),
-    "bad [openspec:invalid]",
+    localizedError("bad [openspec-bsl-flow:invalid]", "en"),
+    "bad [openspec-bsl-flow:invalid]",
   );
 });
 

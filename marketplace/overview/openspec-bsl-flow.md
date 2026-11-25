@@ -3,6 +3,7 @@
 - **Changes:** browse active and archived changes, read proposals and designs, and follow task progress.
 - **Specs:** explore current and proposed specifications in a tree, with before-and-after comparisons.
 - **Agents:** launch a thread for a change or link an existing one, and see when it is working.
+- **BSL Flow:** see review status and verification evidence from the selected worktree and read the status of a linked Managed task.
 
 Both panels open in navigation or beside a thread and share the selected project and planning source. Task progress updates automatically from repository files.
 

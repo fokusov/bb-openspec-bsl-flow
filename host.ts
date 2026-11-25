@@ -2,6 +2,7 @@ import { experimental_defineHostEntry } from "@get-bb/plugin-sdk/host";
 import { hostContract, hostSignals } from "./src/host-contract";
 import { WatchPool } from "./src/watch-pool";
 import { SourceResolver } from "./src/source-resolver";
+import { readManagedTaskStatus } from "./src/managed-task";
 
 const pool = new WatchPool();
 const resolver = new SourceResolver();
@@ -29,6 +30,8 @@ export default experimental_defineHostEntry({
     snapshot: async (input) => pool.snapshot(await indexSource(input)),
     change: async (input) =>
       pool.change(await indexSource(input), input.changeId),
+    managedTaskStatus: ({ workspacePath, taskId }) =>
+      readManagedTaskStatus(workspacePath, taskId),
     watch: async (input, context) => {
       await pool.subscribe(
         { ...input, ...await indexSource(input) },

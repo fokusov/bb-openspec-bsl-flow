@@ -2,6 +2,11 @@
 
 These versions record local development; they do not imply public releases.
 
+## 0.6.2
+
+- Register the fork as `openspec-bsl-flow` under the name OpenSpec BSL Flow. The original `openspec` can be installed alongside it.
+- Show the read-only status of a BSL Flow Managed task linked to a change and thread.
+
 ## 0.6.1
 
 - Resolve OpenSpec on Windows, including the npm command shim, for store discovery and selection.
